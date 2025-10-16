@@ -262,6 +262,7 @@ export type VariantUpdate = Database['public']['Tables']['variants']['Update']
 
 export type UserAssignment = Database['public']['Tables']['user_assignments']['Row']
 export type Event = Database['public']['Tables']['events']['Row']
+export type EventInsert = Database['public']['Tables']['events']['Insert']
 export type ExperimentStats = Database['public']['Tables']['experiment_stats']['Row']
 
 export type ExperimentSummary = Database['public']['Views']['experiment_summary']['Row']
