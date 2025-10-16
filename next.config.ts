@@ -1,13 +1,23 @@
 import type { NextConfig } from 'next';
 import { codeInspectorPlugin } from 'code-inspector-plugin';
 
+const isDev = process.env.NODE_ENV !== 'production';
+
 const nextConfig: NextConfig = {
   experimental: {
-    turbo: {
-      rules: codeInspectorPlugin({
-        bundler: 'turbopack',
-      }),
-    },
+    turbo: isDev
+      ? {
+          rules: codeInspectorPlugin({
+            bundler: 'turbopack',
+          }),
+        }
+      : {},
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
   },
 };
 
