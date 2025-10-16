@@ -8,11 +8,11 @@ import type { Experiment } from "@/lib/supabase/types"
 // Status badge component
 function StatusBadge({ status }: { status: Experiment['status'] }) {
   const styles = {
-    draft: "bg-gray-100 text-gray-800",
-    running: "bg-green-100 text-green-800",
-    paused: "bg-yellow-100 text-yellow-800",
-    completed: "bg-blue-100 text-blue-800",
-    archived: "bg-gray-100 text-gray-600",
+    draft: "bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 border border-gray-200",
+    running: "bg-gradient-to-r from-emerald-100 to-emerald-50 text-emerald-700 border border-emerald-200",
+    paused: "bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 border border-amber-200",
+    completed: "bg-gradient-to-r from-blue-100 to-blue-50 text-blue-700 border border-blue-200",
+    archived: "bg-gradient-to-r from-slate-100 to-slate-50 text-slate-600 border border-slate-200",
   }
 
   const icons = {
@@ -24,7 +24,7 @@ function StatusBadge({ status }: { status: Experiment['status'] }) {
   }
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${styles[status]}`}>
+    <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm ${styles[status]}`}>
       {icons[status]}
       {status.charAt(0).toUpperCase() + status.slice(1)}
     </span>
@@ -53,53 +53,81 @@ export default async function ExperimentsPage() {
   const completedCount = experiments?.filter(e => e.status === 'completed').length || 0
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fade-in">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Experiments</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Experiments
+          </h1>
+          <p className="text-muted-foreground mt-2">
             Create and manage A/B tests for your storefront
           </p>
         </div>
         <Link href="/experiments/new">
-          <Button size="lg">
-            <Plus className="h-4 w-4" />
+          <Button size="lg" className="shadow-lg">
+            <Plus className="h-5 w-5" />
             New Experiment
           </Button>
         </Link>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+      {/* Summary Cards with Gradient */}
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card className="relative overflow-hidden">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Active Experiments
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Active Experiments
+              </CardTitle>
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg">
+                <Play className="h-5 w-5" />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{activeCount}</div>
+            <div className="text-4xl font-bold bg-gradient-to-br from-emerald-600 to-emerald-500 bg-clip-text text-transparent">
+              {activeCount}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Currently running</p>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="relative overflow-hidden">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Drafts
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Drafts
+              </CardTitle>
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg">
+                <span className="text-xl">📝</span>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{draftCount}</div>
+            <div className="text-4xl font-bold bg-gradient-to-br from-amber-600 to-amber-500 bg-clip-text text-transparent">
+              {draftCount}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">In preparation</p>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="relative overflow-hidden">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Completed
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Completed
+              </CardTitle>
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg">
+                <CheckCircle className="h-5 w-5" />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{completedCount}</div>
+            <div className="text-4xl font-bold bg-gradient-to-br from-blue-600 to-blue-500 bg-clip-text text-transparent">
+              {completedCount}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Total finished</p>
           </CardContent>
         </Card>
       </div>
@@ -125,36 +153,51 @@ export default async function ExperimentsPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4">
-            {experiments.map((experiment) => (
+          <div className="grid gap-5">
+            {experiments.map((experiment, index) => (
               <Link key={experiment.id} href={`/experiments/${experiment.id}`}>
-                <Card className="hover:bg-accent/50 transition-colors cursor-pointer">
+                <Card className="group cursor-pointer" style={{ animationDelay: `${index * 50}ms` }}>
                   <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <CardTitle>{experiment.name}</CardTitle>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-lg group-hover:text-primary transition-colors">
+                            {experiment.name}
+                          </CardTitle>
+                          <StatusBadge status={experiment.status} />
+                        </div>
                         {experiment.description && (
-                          <CardDescription>{experiment.description}</CardDescription>
+                          <CardDescription className="text-sm leading-relaxed">
+                            {experiment.description}
+                          </CardDescription>
                         )}
                       </div>
-                      <StatusBadge status={experiment.status} />
                     </div>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                      <div>
-                        <span className="font-medium">Variants:</span>{' '}
-                        {(experiment.variants as any)?.[0]?.count || 0}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-foreground/70">📊</span>
+                        <span className="font-medium text-foreground">
+                          {(experiment.variants as any)?.[0]?.count || 0}
+                        </span>
+                        <span>variants</span>
                       </div>
-                      <div>
-                        <span className="font-medium">Created:</span>{' '}
-                        {new Date(experiment.created_at).toLocaleDateString()}
+                      <div className="h-4 w-px bg-border" />
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-foreground/70">📅</span>
+                        <span className="font-medium text-foreground">
+                          {new Date(experiment.created_at).toLocaleDateString()}
+                        </span>
                       </div>
                       {experiment.started_at && (
-                        <div>
-                          <span className="font-medium">Started:</span>{' '}
-                          {new Date(experiment.started_at).toLocaleDateString()}
-                        </div>
+                        <>
+                          <div className="h-4 w-px bg-border" />
+                          <div className="flex items-center gap-1.5">
+                            <Play className="h-3.5 w-3.5 text-emerald-500" />
+                            <span>{new Date(experiment.started_at).toLocaleDateString()}</span>
+                          </div>
+                        </>
                       )}
                     </div>
                   </CardContent>
