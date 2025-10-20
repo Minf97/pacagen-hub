@@ -7,12 +7,14 @@ import { ArrowLeft, Play, Pause, Edit, Trash2, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import type { Experiment, Variant } from '@/lib/supabase/types'
 import type { ExperimentSummary, TimeSeriesDataPoint } from '@/lib/analytics/types'
 import { MetricCard } from '@/components/analytics/MetricCard'
 import { MetricComparisonChart } from '@/components/analytics/MetricComparisonChart'
 import { VariantComparisonTable } from '@/components/analytics/VariantComparisonTable'
 import { TrendChart } from '@/components/analytics/TrendChart'
+import { EditableWeight } from '@/components/experiments/EditableWeight'
 
 interface ExperimentWithVariants extends Experiment {
   variants: Variant[]
@@ -32,6 +34,7 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [experimentId, setExperimentId] = useState<string | null>(null)
+  const [weightWarning, setWeightWarning] = useState<string | null>(null)
 
   // Unwrap params
   useEffect(() => {
@@ -124,6 +127,43 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete experiment')
       setActionLoading(false)
+    }
+  }
+
+  // Update variant weight
+  const updateVariantWeight = async (variantId: string, newWeight: number) => {
+    setWeightWarning(null)
+
+    try {
+      const response = await fetch(`/api/variants/${variantId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weight: newWeight }),
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        throw new Error(error || 'Failed to update weight')
+      }
+
+      const { variant, warning, totalWeight } = await response.json()
+
+      // Update local state
+      if (experiment) {
+        setExperiment({
+          ...experiment,
+          variants: experiment.variants.map((v) =>
+            v.id === variantId ? { ...v, weight: variant.weight } : v
+          ),
+        })
+      }
+
+      // Show warning if total weight is not 100%
+      if (warning) {
+        setWeightWarning(warning)
+      }
+    } catch (err) {
+      throw err // Let EditableWeight component handle the error
     }
   }
 
@@ -272,8 +312,16 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
         <Card>
           <CardHeader>
             <CardTitle>Variants ({experiment.variants.length})</CardTitle>
+            <CardDescription>
+              Traffic allocation must total 100%
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            {weightWarning && (
+              <Alert variant="destructive">
+                <AlertDescription>{weightWarning}</AlertDescription>
+              </Alert>
+            )}
             {experiment.variants.map((variant) => (
               <div key={variant.id} className="flex items-center justify-between p-3 border rounded-lg">
                 <div className="flex items-center gap-3">
@@ -284,9 +332,19 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
                     )}
                   </div>
                 </div>
-                <div className="text-sm font-medium">{variant.weight}%</div>
+                <EditableWeight
+                  variantId={variant.id}
+                  initialWeight={variant.weight}
+                  onUpdate={updateVariantWeight}
+                  disabled={experiment.status === 'running' || experiment.status === 'completed'}
+                />
               </div>
             ))}
+            {experiment.status === 'running' && (
+              <p className="text-xs text-muted-foreground mt-2">
+                💡 Weight editing is disabled while the experiment is running
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

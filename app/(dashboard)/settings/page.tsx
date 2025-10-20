@@ -29,12 +29,7 @@ export default function SettingsPage() {
                 Planned configuration options:
               </p>
               <ul className="text-sm text-muted-foreground space-y-1 text-left max-w-md mx-auto">
-                <li>• User authentication & team management</li>
-                <li>• API keys & webhook configuration</li>
-                <li>• Cloudflare Workers integration</li>
-                <li>• Default experiment settings</li>
-                <li>• Email notification preferences</li>
-                <li>• Data retention policies</li>
+                <li>• Not configured yet</li>
               </ul>
             </div>
           </div>
