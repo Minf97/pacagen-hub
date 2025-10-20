@@ -8,15 +8,27 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import type { Experiment, Variant } from '@/lib/supabase/types'
+import type { ExperimentSummary, TimeSeriesDataPoint } from '@/lib/analytics/types'
+import { MetricCard } from '@/components/analytics/MetricCard'
+import { MetricComparisonChart } from '@/components/analytics/MetricComparisonChart'
+import { VariantComparisonTable } from '@/components/analytics/VariantComparisonTable'
+import { TrendChart } from '@/components/analytics/TrendChart'
 
 interface ExperimentWithVariants extends Experiment {
   variants: Variant[]
 }
 
+interface StatsData {
+  summary: ExperimentSummary
+  time_series: TimeSeriesDataPoint[]
+}
+
 export default function ExperimentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const [experiment, setExperiment] = useState<ExperimentWithVariants | null>(null)
+  const [stats, setStats] = useState<StatsData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [statsLoading, setStatsLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [experimentId, setExperimentId] = useState<string | null>(null)
@@ -37,10 +49,30 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
 
         const { experiment } = await response.json()
         setExperiment(experiment)
+
+        // Fetch stats if experiment is running or completed
+        if (experiment.status === 'running' || experiment.status === 'completed') {
+          fetchStats()
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred')
       } finally {
         setLoading(false)
+      }
+    }
+
+    const fetchStats = async () => {
+      setStatsLoading(true)
+      try {
+        const response = await fetch(`/api/experiments/${experimentId}/stats`)
+        if (!response.ok) throw new Error('Failed to fetch stats')
+
+        const data = await response.json()
+        setStats(data)
+      } catch (err) {
+        console.error('Failed to fetch stats:', err)
+      } finally {
+        setStatsLoading(false)
       }
     }
 
@@ -121,6 +153,8 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
     completed: 'bg-blue-100 text-blue-800',
     archived: 'bg-gray-100 text-gray-600',
   }
+
+  console.log(stats, "stats")
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -257,19 +291,133 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
         </Card>
       </div>
 
-      {/* Statistics (placeholder) */}
-      {experiment.status === 'running' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Statistics</CardTitle>
-            <CardDescription>Real-time experiment performance</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-12 text-muted-foreground">
-              📊 Statistics dashboard coming soon
-            </div>
-          </CardContent>
-        </Card>
+      {/* Statistics */}
+      {(experiment.status === 'running' || experiment.status === 'completed') && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Statistics</CardTitle>
+              <CardDescription>
+                Real-time experiment performance
+                {stats?.summary.duration_days && ` · Running for ${stats.summary.duration_days} days`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {statsLoading ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  Loading statistics...
+                </div>
+              ) : !stats || stats.summary.variants.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  📊 No statistics data yet. Start collecting data by sending traffic to your experiment.
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {/* Metric Cards Grid */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Key Metrics Overview</h3>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                      {stats.summary.variants.map((variant) => (
+                        <div key={variant.variant_id} className="space-y-4">
+                          <div className="text-sm font-medium text-gray-700 mb-2">
+                            {variant.variant_name}
+                            {variant.is_control && ' (Control)'}
+                          </div>
+
+                          <MetricCard
+                            variant={variant}
+                            metricKey="conversion_rate"
+                            title="Conversion Rate"
+                            valueFormatter={(v) => `${v.toFixed(2)}%`}
+                            estimateKey="estimated_monthly_orders"
+                            estimateLabel="EST. MONTHLY ORDERS"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Comparison Charts */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Variant Comparison</h3>
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <MetricComparisonChart
+                        variants={stats.summary.variants}
+                        metricKey="conversion_rate"
+                        title="Conversion Rate"
+                        valueFormatter={(v) => `${v.toFixed(2)}%`}
+                      />
+                      <MetricComparisonChart
+                        variants={stats.summary.variants}
+                        metricKey="revenue_per_visitor"
+                        title="Revenue per Visitor"
+                        valueFormatter={(v) => `$${v.toFixed(2)}`}
+                      />
+                      <MetricComparisonChart
+                        variants={stats.summary.variants}
+                        metricKey="profit_per_visitor"
+                        title="Profit per Visitor"
+                        valueFormatter={(v) => `$${v.toFixed(2)}`}
+                      />
+                      <MetricComparisonChart
+                        variants={stats.summary.variants}
+                        metricKey="avg_order_value"
+                        title="Average Order Value"
+                        valueFormatter={(v) => `$${v.toFixed(2)}`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Trend Charts */}
+                  {stats.time_series.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Trends Over Time</h3>
+                      <div className="space-y-6">
+                        <TrendChart
+                          timeSeriesData={stats.time_series}
+                          metricKey="conversion_rate"
+                          title="Conversion Rate"
+                          valueFormatter={(v) => `${v.toFixed(2)}%`}
+                        />
+                        <TrendChart
+                          timeSeriesData={stats.time_series}
+                          metricKey="revenue"
+                          title="Revenue"
+                          valueFormatter={(v) => `$${v.toFixed(2)}`}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Detailed Comparison Table */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Detailed Breakdown</h3>
+                    <VariantComparisonTable variants={stats.summary.variants} />
+                  </div>
+
+                  {/* Statistical Significance Note */}
+                  {stats.summary.is_statistically_significant && (
+                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                        <div>
+                          <div className="font-medium text-green-900">
+                            Statistically Significant Results
+                          </div>
+                          <div className="text-sm text-green-700 mt-1">
+                            The winning variant shows a statistically significant improvement of{' '}
+                            {stats.summary.winning_variant_improvement?.toFixed(2)}% over the control
+                            group (p {'<'} 0.05). You can confidently deploy this variant.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   )

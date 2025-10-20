@@ -1,34 +1,7 @@
+import { ShopifyOrder } from '@/types/webhook'
 import crypto from 'crypto'
 
-/**
- * Shopify Order Webhook Payload Types
- */
-export interface ShopifyOrder {
-  id: number
-  email: string
-  created_at: string
-  total_price: string
-  currency: string
-  customer: {
-    id: number
-    email: string
-    first_name: string
-    last_name: string
-  }
-  line_items: Array<{
-    id: number
-    title: string
-    quantity: number
-    price: string
-    product_id: number
-    variant_id: number
-  }>
-  note_attributes?: Array<{
-    name: string
-    value: string
-  }>
-  // Add other fields as needed
-}
+
 
 /**
  * Extracted A/B Test Information from Order
@@ -88,16 +61,16 @@ export function extractExperimentInfo(order: ShopifyOrder): OrderExperimentInfo 
 
   // Extract from note_attributes
   const experimentId = noteAttributes.find(
-    attr => attr.name === 'ab_test_experiment_id'
+    attr => attr.name === 'pacagen_hub_ab_experiment_id'
   )?.value
 
   const variantId = noteAttributes.find(
-    attr => attr.name === 'ab_test_variant_id'
+    attr => attr.name === 'pacagen_hub_ab_variant_id'
   )?.value
 
   const userId = noteAttributes.find(
-    attr => attr.name === 'ab_test_user_id'
-  )?.value || `customer_${order.customer.id}`
+    attr => attr.name === 'pacagen_hub_ab_user_id'
+  )?.value
 
   return {
     userId,

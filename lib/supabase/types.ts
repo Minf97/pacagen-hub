@@ -243,7 +243,43 @@ export interface Database {
       }
     }
     Functions: {
-      [_ in never]: never
+      get_variant_totals: {
+        Args: {
+          p_experiment_id: string
+        }
+        Returns: {
+          variant_id: string
+          total_visitors: number
+          total_impressions: number
+          total_clicks: number
+          total_orders: number
+          total_revenue: number
+          day_count: number
+        }[]
+      }
+      get_experiment_time_series: {
+        Args: {
+          p_experiment_id: string
+        }
+        Returns: {
+          date: string
+          variant_id: string
+          visitors: number
+          impressions: number
+          clicks: number
+          orders: number
+          revenue: number
+        }[]
+      }
+      increment_conversion_stats: {
+        Args: {
+          p_experiment_id: string
+          p_variant_id: string
+          p_date: string
+          p_order_value: number
+        }
+        Returns: void
+      }
     }
     Enums: {
       [_ in never]: never
@@ -266,3 +302,12 @@ export type EventInsert = Database['public']['Tables']['events']['Insert']
 export type ExperimentStats = Database['public']['Tables']['experiment_stats']['Row']
 
 export type ExperimentSummary = Database['public']['Views']['experiment_summary']['Row']
+
+// Function return types
+export type VariantTotals = Database['public']['Functions']['get_variant_totals']['Returns'][number]
+export type TimeSeriesRow = Database['public']['Functions']['get_experiment_time_series']['Returns'][number]
+
+// Extended types with relations
+export type ExperimentWithVariants = Experiment & {
+  variants: Variant[]
+}
