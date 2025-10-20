@@ -60,8 +60,13 @@ export async function PATCH(
     if (body.targeting_rules !== undefined) updateData.targeting_rules = body.targeting_rules
 
     // Handle status changes
-    if (body.status === 'running' && !body.started_at) {
-      updateData.started_at = new Date().toISOString()
+    if (body.status === 'running') {
+      // Set started_at if this is the first time starting
+      if (!body.started_at) {
+        updateData.started_at = new Date().toISOString()
+      }
+      // Clear ended_at when resuming from completed/paused
+      updateData.ended_at = null
     }
     if (body.status === 'completed' && !body.ended_at) {
       updateData.ended_at = new Date().toISOString()
