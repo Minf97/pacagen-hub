@@ -220,16 +220,18 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
         </div>
 
         <div className="flex items-center gap-2">
-          {experiment.status === 'draft' && (
+          {/* Start/Resume button - available for all non-running states */}
+          {experiment.status !== 'running' && (
             <Button
               onClick={() => updateStatus('running')}
               disabled={actionLoading}
             >
               <Play className="h-4 w-4" />
-              Start Experiment
+              {experiment.status === 'draft' ? 'Start Experiment' : 'Resume Experiment'}
             </Button>
           )}
 
+          {/* Pause button - only when running */}
           {experiment.status === 'running' && (
             <Button
               onClick={() => updateStatus('paused')}
@@ -241,26 +243,19 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
             </Button>
           )}
 
-          {experiment.status === 'paused' && (
-            <>
-              <Button
-                onClick={() => updateStatus('running')}
-                disabled={actionLoading}
-              >
-                <Play className="h-4 w-4" />
-                Resume
-              </Button>
-              <Button
-                onClick={() => updateStatus('completed')}
-                disabled={actionLoading}
-                variant="outline"
-              >
-                <CheckCircle className="h-4 w-4" />
-                Complete
-              </Button>
-            </>
+          {/* Complete button - only when paused or running */}
+          {(experiment.status === 'paused' || experiment.status === 'running') && (
+            <Button
+              onClick={() => updateStatus('completed')}
+              disabled={actionLoading}
+              variant="outline"
+            >
+              <CheckCircle className="h-4 w-4" />
+              Complete
+            </Button>
           )}
 
+          {/* Delete button - disabled when running */}
           <Button
             variant="outline"
             size="icon"
@@ -336,7 +331,7 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
                   variantId={variant.id}
                   initialWeight={variant.weight}
                   onUpdate={updateVariantWeight}
-                  disabled={experiment.status === 'running' || experiment.status === 'completed'}
+                  disabled={experiment.status === 'running'}
                 />
               </div>
             ))}
