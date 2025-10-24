@@ -99,6 +99,37 @@ services:
     oom_score_adj: -500
 
   # =====================================================
+  # Drizzle Studio (Database GUI) - OPTIONAL
+  # =====================================================
+  # ⚠️ WARNING: This exposes your database GUI to the internet
+  # Only use for debugging, or restrict access via firewall
+  # Access: http://your-server-ip:4983
+  drizzle-studio:
+    image: node:20-alpine
+    container_name: pacagen_hub_drizzle_studio
+    working_dir: /app
+    command: sh -c "npm install drizzle-kit && npx drizzle-kit studio --host 0.0.0.0 --port 4983"
+    ports:
+      - '4983:4983'
+    environment:
+      DATABASE_URL: postgresql://pacagen:${POSTGRES_PASSWORD:-CHANGE_THIS_IN_ENV}@postgres:5432/pacagen_hub_prod
+    volumes:
+      - ./drizzle:/app/drizzle
+      - ./lib/db:/app/lib/db
+      - ./drizzle.config.ts:/app/drizzle.config.ts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pacagen_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+  # =====================================================
   # Nginx Reverse Proxy
   # =====================================================
   # Uncomment if you want to use Nginx for SSL/load balancing
