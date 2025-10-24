@@ -10,7 +10,18 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "docker:dev": "docker-compose up -d",
+    "docker:dev:stop": "docker-compose down",
+    "docker:dev:logs": "docker-compose logs -f",
+    "docker:prod": "docker-compose -f docker-compose.prod.yml up -d",
+    "docker:prod:stop": "docker-compose -f docker-compose.prod.yml down",
+    "docker:prod:logs": "docker-compose -f docker-compose.prod.yml logs -f",
+    "docker:prod:build": "docker-compose -f docker-compose.prod.yml up -d --build",
+    "dev:full": "npm run docker:dev && npm run db:migrate && npm run dev",
+    "sync": "git pull && npm install && npm run db:migrate",
+    "clean": "rm -rf .next node_modules && npm install",
+    "db:reset": "npm run docker:dev:stop && docker volume rm pacagen-hub_postgres_dev_data && npm run docker:dev && sleep 5 && npm run db:migrate"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

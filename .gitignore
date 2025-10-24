@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# Allow example and development env files to be committed
+!.env.development
+!.env.production.example
+!.env.local.example
 
 # vercel
 .vercel
@@ -39,3 +43,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# docker volumes and data
+docker-compose.override.yml
+postgres_data/
+*.sql.gz
+*.dump

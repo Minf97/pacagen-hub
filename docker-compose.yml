@@ -1,22 +1,70 @@
+# =====================================================
+# Docker Compose - Development Environment
+# =====================================================
+# This file is used for local development
+# Usage: docker-compose up -d
+
+version: '3.8'
+
 services:
+  # =====================================================
+  # PostgreSQL Database (Development)
+  # =====================================================
   postgres:
     image: postgres:15-alpine
-    container_name: pacagen_hub_postgres
+    container_name: pacagen_hub_postgres_dev
     restart: unless-stopped
     environment:
       POSTGRES_USER: pacagen
       POSTGRES_PASSWORD: pacagen_dev_pass
       POSTGRES_DB: pacagen_hub_dev
+      # Development-friendly settings
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - '5432:5432'
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_dev_data:/var/lib/postgresql/data
+      # Optional: initialization scripts
+      # - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - pacagen_dev_network
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U pacagen']
+      test: ['CMD-SHELL', 'pg_isready -U pacagen -d pacagen_hub_dev']
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 5s
 
+  # =====================================================
+  # Optional: pgAdmin for Database Management
+  # =====================================================
+  # Uncomment to enable web-based database management
+  # Access at: http://localhost:5050
+  # pgadmin:
+  #   image: dpage/pgadmin4:latest
+  #   container_name: pacagen_hub_pgadmin
+  #   restart: unless-stopped
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: admin@pacagen.dev
+  #     PGADMIN_DEFAULT_PASSWORD: admin
+  #     PGADMIN_CONFIG_SERVER_MODE: 'False'
+  #   ports:
+  #     - '5050:80'
+  #   networks:
+  #     - pacagen_dev_network
+  #   depends_on:
+  #     - postgres
+
+# =====================================================
+# Networks
+# =====================================================
+networks:
+  pacagen_dev_network:
+    driver: bridge
+
+# =====================================================
+# Volumes
+# =====================================================
 volumes:
-  postgres_data:
+  postgres_dev_data:
     driver: local

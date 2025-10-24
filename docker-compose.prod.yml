@@ -1,0 +1,120 @@
+# =====================================================
+# Docker Compose - Production Environment
+# =====================================================
+# This file is used for AWS production deployment
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+
+version: '3.8'
+
+services:
+  # =====================================================
+  # PostgreSQL Database (Production)
+  # =====================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: pacagen_hub_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_USER: pacagen
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGE_THIS_IN_ENV}
+      POSTGRES_DB: pacagen_hub_prod
+      # Performance tuning for production
+      POSTGRES_SHARED_BUFFERS: 256MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
+      POSTGRES_MAX_CONNECTIONS: 100
+    ports:
+      # Only expose internally, not to host (security)
+      # Remove this line if you don't need external DB access
+      - '5432:5432'
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      # Optional: custom PostgreSQL config
+      # - ./postgresql.conf:/etc/postgresql/postgresql.conf
+    networks:
+      - pacagen_network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pacagen -d pacagen_hub_prod']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # =====================================================
+  # Next.js Application (Production)
+  # =====================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    container_name: pacagen_hub_app_prod
+    restart: always
+    ports:
+      - '3000:3000'
+    env_file:
+      # Load production environment variables
+      - .env.prod
+    environment:
+      # Override DATABASE_URL to use Docker network
+      DATABASE_URL: postgresql://pacagen:${POSTGRES_PASSWORD:-CHANGE_THIS_IN_ENV}@postgres:5432/pacagen_hub_prod
+      NODE_ENV: production
+      PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pacagen_network
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Resource limits (adjust based on your server)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # =====================================================
+  # Nginx Reverse Proxy
+  # =====================================================
+  # Uncomment if you want to use Nginx for SSL/load balancing
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: pacagen_hub_nginx
+  #   restart: always
+  #   ports:
+  #     - '80:80'
+  #     - '443:443'
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - app
+  #   networks:
+  #     - pacagen_network
+
+# =====================================================
+# Networks
+# =====================================================
+networks:
+  pacagen_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# =====================================================
+# Volumes
+# =====================================================
+volumes:
+  postgres_prod_data:
+    driver: local
+    # Optional: use named volume for easier backup
+    # name: pacagen_hub_postgres_prod_data
