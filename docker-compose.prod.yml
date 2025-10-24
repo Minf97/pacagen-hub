@@ -19,9 +19,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGE_THIS_IN_ENV}
       POSTGRES_DB: pacagen_hub_prod
       # Performance tuning for production
-      POSTGRES_SHARED_BUFFERS: 256MB
-      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
-      POSTGRES_MAX_CONNECTIONS: 100
+      POSTGRES_SHARED_BUFFERS: 128MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 512MB
+      POSTGRES_MAX_CONNECTIONS: 50
     ports:
       # Only expose internally, not to host (security)
       # Remove this line if you don't need external DB access
@@ -38,6 +38,17 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    # Resource limits for PostgreSQL
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    # Prevent OOM killer from killing this container first
+    mem_swappiness: 0
 
   # =====================================================
   # Next.js Application (Production)
@@ -60,6 +71,8 @@ services:
       DATABASE_URL: postgresql://pacagen:${POSTGRES_PASSWORD:-CHANGE_THIS_IN_ENV}@postgres:5432/pacagen_hub_prod
       NODE_ENV: production
       PORT: 3000
+      # Node.js memory limits (prevent memory leaks from crashing server)
+      NODE_OPTIONS: '--max-old-space-size=768'
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,6 +93,10 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+    # Prevent OOM killer from killing this container first
+    mem_swappiness: 0
+    # OOM score adjustment (lower = less likely to be killed)
+    oom_score_adj: -500
 
   # =====================================================
   # Nginx Reverse Proxy
