@@ -1,12 +1,18 @@
 -- =====================================================
--- Atomic Stats Update Function
--- =====================================================
--- Purpose: Eliminate race conditions in conversion tracking
--- Performance: Reduces webhook DB calls from 3 to 1
--- Safety: Atomic UPSERT prevents concurrent update conflicts
+-- Database Functions for Pacagen Hub
 -- =====================================================
 
+-- Function: Auto-update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Function: Atomically increment conversion stats
+-- Purpose: Eliminate race conditions in conversion tracking
 -- Usage: Called by Shopify webhook when order is created
 CREATE OR REPLACE FUNCTION increment_conversion_stats(
   p_experiment_id uuid,
@@ -69,10 +75,4 @@ BEGIN
 END;
 $$;
 
--- Add function comment
-COMMENT ON FUNCTION increment_conversion_stats IS
-'Atomically increments conversion stats for an experiment variant. Uses ON CONFLICT to prevent race conditions when multiple webhooks arrive simultaneously. Called by Shopify order webhook.';
-
--- Grant execute permissions
-GRANT EXECUTE ON FUNCTION increment_conversion_stats(uuid, uuid, date, numeric) TO authenticated;
-GRANT EXECUTE ON FUNCTION increment_conversion_stats(uuid, uuid, date, numeric) TO anon;
+COMMENT ON FUNCTION increment_conversion_stats IS 'Atomically increments conversion stats for an experiment variant. Uses ON CONFLICT to prevent race conditions when multiple webhooks arrive simultaneously.';

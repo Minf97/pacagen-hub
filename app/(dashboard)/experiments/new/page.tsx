@@ -13,9 +13,9 @@ import { Textarea } from '@/components/ui/textarea'
 interface Variant {
   id: string
   name: string
-  display_name: string
+  displayName: string
   weight: number
-  is_control: boolean
+  isControl: boolean
 }
 
 export default function NewExperimentPage() {
@@ -31,16 +31,16 @@ export default function NewExperimentPage() {
     {
       id: 'control',
       name: 'control',
-      display_name: 'Control (Original)',
+      displayName: 'Control (Original)',
       weight: 50,
-      is_control: true,
+      isControl: true,
     },
     {
       id: 'variant_a',
       name: 'variant_a',
-      display_name: 'Variant A',
+      displayName: 'Variant A',
       weight: 50,
-      is_control: false,
+      isControl: false,
     },
   ])
 
@@ -50,9 +50,9 @@ export default function NewExperimentPage() {
     const newVariant: Variant = {
       id: `variant_${nextLetter.toLowerCase()}`,
       name: `variant_${nextLetter.toLowerCase()}`,
-      display_name: `Variant ${nextLetter}`,
+      displayName: `Variant ${nextLetter}`,
       weight: Math.floor(100 / (variants.length + 1)),
-      is_control: false,
+      isControl: false,
     }
 
     // Redistribute weights
@@ -247,9 +247,9 @@ export default function NewExperimentPage() {
                         </Label>
                         <Input
                           id={`variant-${variant.id}-name`}
-                          value={variant.display_name}
+                          value={variant.displayName}
                           onChange={(e) =>
-                            updateVariant(variant.id, 'display_name', e.target.value)
+                            updateVariant(variant.id, 'displayName', e.target.value)
                           }
                         />
                       </div>
@@ -270,14 +270,14 @@ export default function NewExperimentPage() {
                       </div>
                     </div>
 
-                    {variant.is_control && (
+                    {variant.isControl && (
                       <div className="text-sm text-muted-foreground">
                         ⭐ This is the control variant (original version)
                       </div>
                     )}
                   </div>
 
-                  {!variant.is_control && variants.length > 2 && (
+                  {!variant.isControl && variants.length > 2 && (
                     <Button
                       type="button"
                       variant="ghost"

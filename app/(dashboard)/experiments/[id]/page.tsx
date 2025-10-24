@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Play, Pause, Edit, Trash2, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Play, Pause, Trash2, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import type { Experiment, Variant } from '@/lib/supabase/types'
+import type { Experiment, Variant } from '@/lib/db/schema'
 import type { ExperimentSummary, TimeSeriesDataPoint } from '@/lib/analytics/types'
 import { MetricCard } from '@/components/analytics/MetricCard'
 import { MetricComparisonChart } from '@/components/analytics/MetricComparisonChart'
@@ -146,7 +146,7 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
         throw new Error(error || 'Failed to update weight')
       }
 
-      const { variant, warning, totalWeight } = await response.json()
+      const { variant, warning } = await response.json()
 
       // Update local state
       if (experiment) {
@@ -284,20 +284,20 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="text-sm font-medium text-muted-foreground mb-1">Created</div>
-                <div className="text-sm">{new Date(experiment.created_at).toLocaleString()}</div>
+                <div className="text-sm">{new Date(experiment.createdAt).toLocaleString()}</div>
               </div>
 
-              {experiment.started_at && (
+              {experiment.startedAt && (
                 <div>
                   <div className="text-sm font-medium text-muted-foreground mb-1">Started</div>
-                  <div className="text-sm">{new Date(experiment.started_at).toLocaleString()}</div>
+                  <div className="text-sm">{new Date(experiment.startedAt).toLocaleString()}</div>
                 </div>
               )}
 
-              {experiment.ended_at && (
+              {experiment.endedAt && (
                 <div>
                   <div className="text-sm font-medium text-muted-foreground mb-1">Ended</div>
-                  <div className="text-sm">{new Date(experiment.ended_at).toLocaleString()}</div>
+                  <div className="text-sm">{new Date(experiment.endedAt).toLocaleString()}</div>
                 </div>
               )}
             </div>
@@ -321,8 +321,8 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
               <div key={variant.id} className="flex items-center justify-between p-3 border rounded-lg">
                 <div className="flex items-center gap-3">
                   <div>
-                    <div className="font-medium">{variant.display_name}</div>
-                    {variant.is_control && (
+                    <div className="font-medium">{variant.displayName}</div>
+                    {variant.isControl && (
                       <div className="text-xs text-muted-foreground">⭐ Control</div>
                     )}
                   </div>

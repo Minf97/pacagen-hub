@@ -1,56 +1,46 @@
-import Link from "next/link"
-import { Plus, Play, Pause, CheckCircle, Archive } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { createClient } from "@/lib/supabase/server"
-import type { Experiment } from "@/lib/supabase/types"
+import Link from 'next/link';
+import { Plus, Play, Pause, CheckCircle, Archive } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { getAllExperiments } from '@/lib/db/queries';
+import type { Experiment } from '@/lib/db/schema';
 
 // Status badge component
 function StatusBadge({ status }: { status: Experiment['status'] }) {
   const styles = {
-    draft: "bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 border border-gray-200",
-    running: "bg-gradient-to-r from-emerald-100 to-emerald-50 text-emerald-700 border border-emerald-200",
-    paused: "bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 border border-amber-200",
-    completed: "bg-gradient-to-r from-blue-100 to-blue-50 text-blue-700 border border-blue-200",
-    archived: "bg-gradient-to-r from-slate-100 to-slate-50 text-slate-600 border border-slate-200",
-  }
+    draft: 'bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 border border-gray-200',
+    running: 'bg-gradient-to-r from-emerald-100 to-emerald-50 text-emerald-700 border border-emerald-200',
+    paused: 'bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 border border-amber-200',
+    completed: 'bg-gradient-to-r from-blue-100 to-blue-50 text-blue-700 border border-blue-200',
+    archived: 'bg-gradient-to-r from-slate-100 to-slate-50 text-slate-600 border border-slate-200',
+  };
 
   const icons = {
-    draft: "📝",
+    draft: '📝',
     running: <Play className="h-3 w-3" />,
     paused: <Pause className="h-3 w-3" />,
     completed: <CheckCircle className="h-3 w-3" />,
     archived: <Archive className="h-3 w-3" />,
-  }
+  };
 
   return (
-    <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm ${styles[status]}`}>
+    <span
+      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm ${styles[status]}`}
+    >
       {icons[status]}
       {status.charAt(0).toUpperCase() + status.slice(1)}
     </span>
-  )
+  );
 }
 
 export default async function ExperimentsPage() {
-  const supabase = await createClient()
-
-  // Fetch all experiments with variant count
-  const { data: experiments, error } = await supabase
-    .from('experiments')
-    .select(`
-      *,
-      variants:variants!variants_experiment_id_fkey (count)
-    `)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    console.error('Error fetching experiments:', error)
-  }
+  // Fetch all experiments with variants
+  const experiments = await getAllExperiments();
 
   // Get summary stats
-  const activeCount = experiments?.filter(e => e.status === 'running').length || 0
-  const draftCount = experiments?.filter(e => e.status === 'draft').length || 0
-  const completedCount = experiments?.filter(e => e.status === 'completed').length || 0
+  const activeCount = experiments?.filter((e) => e.status === 'running').length || 0;
+  const draftCount = experiments?.filter((e) => e.status === 'draft').length || 0;
+  const completedCount = experiments?.filter((e) => e.status === 'completed').length || 0;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -60,9 +50,7 @@ export default async function ExperimentsPage() {
           <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
             Experiments
           </h1>
-          <p className="text-muted-foreground mt-2">
-            Create and manage A/B tests for your storefront
-          </p>
+          <p className="text-muted-foreground mt-2">Create and manage A/B tests for your storefront</p>
         </div>
         <Link href="/experiments/new">
           <Button size="lg" className="shadow-lg">
@@ -77,9 +65,7 @@ export default async function ExperimentsPage() {
         <Card className="relative overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Active Experiments
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Active Experiments</CardTitle>
               <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg">
                 <Play className="h-5 w-5" />
               </div>
@@ -96,9 +82,7 @@ export default async function ExperimentsPage() {
         <Card className="relative overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Drafts
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Drafts</CardTitle>
               <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg">
                 <span className="text-xl">📝</span>
               </div>
@@ -115,9 +99,7 @@ export default async function ExperimentsPage() {
         <Card className="relative overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Completed
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
               <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg">
                 <CheckCircle className="h-5 w-5" />
               </div>
@@ -167,9 +149,7 @@ export default async function ExperimentsPage() {
                           <StatusBadge status={experiment.status} />
                         </div>
                         {experiment.description && (
-                          <CardDescription className="text-sm leading-relaxed">
-                            {experiment.description}
-                          </CardDescription>
+                          <CardDescription className="text-sm leading-relaxed">{experiment.description}</CardDescription>
                         )}
                       </div>
                     </div>
@@ -178,24 +158,22 @@ export default async function ExperimentsPage() {
                     <div className="flex items-center gap-6 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1.5">
                         <span className="text-foreground/70">📊</span>
-                        <span className="font-medium text-foreground">
-                          {(experiment.variants as any)?.[0]?.count || 0}
-                        </span>
+                        <span className="font-medium text-foreground">{experiment.variants?.length || 0}</span>
                         <span>variants</span>
                       </div>
                       <div className="h-4 w-px bg-border" />
                       <div className="flex items-center gap-1.5">
                         <span className="text-foreground/70">📅</span>
                         <span className="font-medium text-foreground">
-                          {new Date(experiment.created_at).toLocaleDateString()}
+                          {new Date(experiment.createdAt).toLocaleDateString()}
                         </span>
                       </div>
-                      {experiment.started_at && (
+                      {experiment.startedAt && (
                         <>
                           <div className="h-4 w-px bg-border" />
                           <div className="flex items-center gap-1.5">
                             <Play className="h-3.5 w-3.5 text-emerald-500" />
-                            <span>{new Date(experiment.started_at).toLocaleDateString()}</span>
+                            <span>{new Date(experiment.startedAt).toLocaleDateString()}</span>
                           </div>
                         </>
                       )}
@@ -208,7 +186,7 @@ export default async function ExperimentsPage() {
         )}
       </div>
     </div>
-  )
+  );
 }
 
 function FlaskConical(props: React.SVGProps<SVGSVGElement>) {
@@ -229,5 +207,5 @@ function FlaskConical(props: React.SVGProps<SVGSVGElement>) {
       <path d="M8.5 2h7" />
       <path d="M7 16h10" />
     </svg>
-  )
+  );
 }

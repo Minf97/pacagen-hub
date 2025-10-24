@@ -1,114 +1,68 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import type { ExperimentInsert, VariantInsert } from '@/lib/supabase/types'
+import { NextResponse } from 'next/server';
+import { getAllExperiments, createExperimentWithVariants } from '@/lib/db/queries';
+import { createExperimentSchema } from '@/lib/validations/experiment';
+import type { ExperimentInsert, VariantInsert } from '@/lib/db/schema';
 
 // GET /api/experiments - List all experiments
 export async function GET() {
   try {
-    const supabase = await createClient()
-
-    const { data: experiments, error } = await supabase
-      .from('experiments')
-      .select(`
-        *,
-        variants!variants_experiment_id_fkey (*)
-      `)
-      .order('created_at', { ascending: false })
-
-    if (error) throw error
-
-    return NextResponse.json({ experiments })
+    const experiments = await getAllExperiments();
+    return NextResponse.json({ experiments });
   } catch (error) {
-    console.error('Error fetching experiments:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch experiments' },
-      { status: 500 }
-    )
+    console.error('Error fetching experiments:', error);
+    return NextResponse.json({ error: 'Failed to fetch experiments' }, { status: 500 });
   }
 }
 
 // POST /api/experiments - Create new experiment
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { name, description, hypothesis, variants } = body
+    const body = await request.json();
 
-    // Validate required fields
-    if (!name) {
+    // Validate request body
+    const validation = createExperimentSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Experiment name is required' },
+        { error: 'Validation failed', details: validation.error.format() },
         { status: 400 }
-      )
+      );
     }
 
-    if (!variants || variants.length < 2) {
-      return NextResponse.json(
-        { error: 'At least 2 variants are required' },
-        { status: 400 }
-      )
-    }
+    const { name, description, hypothesis, variants: variantsInput } = validation.data;
 
-    // Validate weight total
-    const totalWeight = variants.reduce((sum: number, v: any) => sum + v.weight, 0)
-    if (totalWeight !== 100) {
-      return NextResponse.json(
-        { error: 'Total variant weight must equal 100%' },
-        { status: 400 }
-      )
-    }
-
-    const supabase = await createClient()
-
-    // Create experiment
+    // Prepare experiment data
     const experimentData: ExperimentInsert = {
       name,
       description: description || null,
       hypothesis: hypothesis || null,
       status: 'draft',
-      traffic_allocation: variants.reduce((acc: any, v: any) => {
-        acc[v.name] = v.weight
-        return acc
-      }, {}),
-      targeting_rules: {},
-      // created_by will be set by auth when implemented
-    }
+      trafficAllocation: [], // Will be populated after variants are created
+      targetingRules: {},
+    };
 
-    const { data: experiment, error: experimentError } = await supabase
-      .from('experiments')
-      .insert(experimentData)
-      .select()
-      .single()
-
-    if (experimentError) throw experimentError
-
-    // Create variants
-    const variantData: VariantInsert[] = variants.map((v: any) => ({
-      experiment_id: experiment.id,
+    // Prepare variants data (without experimentId)
+    const variantsData: Omit<VariantInsert, 'experimentId'>[] = variantsInput.map((v) => ({
       name: v.name,
-      display_name: v.display_name,
-      is_control: v.is_control || false,
+      displayName: v.displayName,
+      isControl: v.isControl,
       weight: v.weight,
-      config: {},
-    }))
+      config: v.config || {},
+    }));
 
-    const { data: createdVariants, error: variantsError } = await supabase
-      .from('variants')
-      .insert(variantData)
-      .select()
-
-    if (variantsError) throw variantsError
+    // Create experiment and variants in a single transaction
+    const { experiment, variants } = await createExperimentWithVariants(
+      experimentData,
+      variantsData
+    );
 
     return NextResponse.json({
       experiment: {
         ...experiment,
-        variants: createdVariants,
+        variants,
       },
-    })
+    });
   } catch (error) {
-    console.error('Error creating experiment:', error)
-    return NextResponse.json(
-      { error: 'Failed to create experiment' },
-      { status: 500 }
-    )
+    console.error('Error creating experiment:', error);
+    return NextResponse.json({ error: 'Failed to create experiment' }, { status: 500 });
   }
 }

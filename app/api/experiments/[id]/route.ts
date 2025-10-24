@@ -1,120 +1,97 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import type { ExperimentUpdate } from '@/lib/supabase/types'
+import { NextResponse } from 'next/server';
+import { getExperimentById, updateExperiment, deleteExperiment, getVariantsByExperimentId } from '@/lib/db/queries';
+import { updateExperimentSchema } from '@/lib/validations/experiment';
+import type { ExperimentInsert } from '@/lib/db/schema';
 
 // GET /api/experiments/[id] - Get experiment by ID
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params
-    const supabase = await createClient()
-
-    const { data: experiment, error } = await supabase
-      .from('experiments')
-      .select(`
-        *,
-        variants!variants_experiment_id_fkey (*)
-      `)
-      .eq('id', id)
-      .single()
-
-    if (error) throw error
+    const { id } = await params;
+    const experiment = await getExperimentById(id);
 
     if (!experiment) {
-      return NextResponse.json(
-        { error: 'Experiment not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Experiment not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ experiment })
+    return NextResponse.json({ experiment });
   } catch (error) {
-    console.error('Error fetching experiment:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch experiment' },
-      { status: 500 }
-    )
+    console.error('Error fetching experiment:', error);
+    return NextResponse.json({ error: 'Failed to fetch experiment' }, { status: 500 });
   }
 }
 
 // PATCH /api/experiments/[id] - Update experiment
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params
-    const body = await request.json()
-    const supabase = await createClient()
+    const { id } = await params;
+    const body = await request.json();
+
+    // Validate request body
+    const validation = updateExperimentSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: validation.error.format() },
+        { status: 400 }
+      );
+    }
 
     // Build update object
-    const updateData: ExperimentUpdate = {}
+    const updateData: Partial<ExperimentInsert> = {};
 
-    if (body.name !== undefined) updateData.name = body.name
-    if (body.description !== undefined) updateData.description = body.description
-    if (body.hypothesis !== undefined) updateData.hypothesis = body.hypothesis
-    if (body.status !== undefined) updateData.status = body.status
-    if (body.traffic_allocation !== undefined) updateData.traffic_allocation = body.traffic_allocation
-    if (body.targeting_rules !== undefined) updateData.targeting_rules = body.targeting_rules
+    if (validation.data.name) updateData.name = validation.data.name;
+    if (validation.data.description !== undefined) updateData.description = validation.data.description;
+    if (validation.data.hypothesis !== undefined) updateData.hypothesis = validation.data.hypothesis;
+    if (validation.data.status) updateData.status = validation.data.status;
+    if (validation.data.trafficAllocation) updateData.trafficAllocation = validation.data.trafficAllocation;
+    if (validation.data.targetingRules) updateData.targetingRules = validation.data.targetingRules;
 
     // Handle status changes
-    if (body.status === 'running') {
-      // Set started_at if this is the first time starting
-      if (!body.started_at) {
-        updateData.started_at = new Date().toISOString()
+    if (validation.data.status === 'running') {
+      // Validate that total weight is 100% before starting experiment
+      const variants = await getVariantsByExperimentId(id);
+      const totalWeight = variants.reduce((sum, v) => sum + v.weight, 0);
+
+      if (totalWeight !== 100) {
+        return NextResponse.json({
+          error: `Cannot start experiment: total traffic allocation must be 100%. Current total is ${totalWeight}%.`,
+          totalWeight,
+          variants: variants.map(v => ({ id: v.id, name: v.displayName, weight: v.weight }))
+        }, { status: 400 });
       }
-      // Clear ended_at when resuming from completed/paused
-      updateData.ended_at = null
+
+      updateData.startedAt = new Date();
+      updateData.endedAt = null;
     }
-    if (body.status === 'completed' && !body.ended_at) {
-      updateData.ended_at = new Date().toISOString()
+    if (validation.data.status === 'completed') {
+      updateData.endedAt = new Date();
     }
 
-    const { data: experiment, error } = await supabase
-      .from('experiments')
-      .update(updateData)
-      .eq('id', id)
-      .select(`
-        *,
-        variants!variants_experiment_id_fkey (*)
-      `)
-      .single()
+    const experiment = await updateExperiment(id, updateData);
 
-    if (error) throw error
+    if (!experiment) {
+      return NextResponse.json({ error: 'Experiment not found' }, { status: 404 });
+    }
 
-    return NextResponse.json({ experiment })
+    // Fetch with variants
+    const updatedExperiment = await getExperimentById(id);
+
+    return NextResponse.json({ experiment: updatedExperiment });
   } catch (error) {
-    console.error('Error updating experiment:', error)
-    return NextResponse.json(
-      { error: 'Failed to update experiment' },
-      { status: 500 }
-    )
+    console.error('Error updating experiment:', error);
+    return NextResponse.json({ error: 'Failed to update experiment' }, { status: 500 });
   }
 }
 
 // DELETE /api/experiments/[id] - Delete experiment
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params
-    const supabase = await createClient()
+    const { id } = await params;
 
     // Check if experiment exists
-    const { data: experiment, error: fetchError } = await supabase
-      .from('experiments')
-      .select('id, status')
-      .eq('id', id)
-      .single()
+    const experiment = await getExperimentById(id);
 
-    if (fetchError || !experiment) {
-      return NextResponse.json(
-        { error: 'Experiment not found' },
-        { status: 404 }
-      )
+    if (!experiment) {
+      return NextResponse.json({ error: 'Experiment not found' }, { status: 404 });
     }
 
     // Prevent deletion of running experiments
@@ -122,23 +99,14 @@ export async function DELETE(
       return NextResponse.json(
         { error: 'Cannot delete a running experiment. Please pause it first.' },
         { status: 400 }
-      )
+      );
     }
 
-    // Delete experiment (variants will cascade delete)
-    const { error: deleteError } = await supabase
-      .from('experiments')
-      .delete()
-      .eq('id', id)
+    await deleteExperiment(id);
 
-    if (deleteError) throw deleteError
-
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting experiment:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete experiment' },
-      { status: 500 }
-    )
+    console.error('Error deleting experiment:', error);
+    return NextResponse.json({ error: 'Failed to delete experiment' }, { status: 500 });
   }
 }

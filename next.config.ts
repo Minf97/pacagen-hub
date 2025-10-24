@@ -4,14 +4,10 @@ import { codeInspectorPlugin } from 'code-inspector-plugin';
 const isDev = process.env.NODE_ENV !== 'production';
 
 const nextConfig: NextConfig = {
-  experimental: {
-    turbo: isDev
-      ? {
-          rules: codeInspectorPlugin({
-            bundler: 'turbopack',
-          }),
-        }
-      : {},
+  turbopack: {
+    rules: codeInspectorPlugin({
+      bundler: 'turbopack',
+    }),
   },
   typescript: {
     ignoreBuildErrors: true,

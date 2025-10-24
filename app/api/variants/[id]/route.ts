@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { updateVariant, getVariantById, getVariantsByExperimentId, getExperimentById, updateExperiment } from '@/lib/db/queries'
 
 /**
  * PATCH /api/variants/[id] - Update variant
@@ -12,7 +12,6 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = await request.json()
-    const supabase = await createClient()
 
     // Validate weight if provided
     if (body.weight !== undefined) {
@@ -25,54 +24,45 @@ export async function PATCH(
       }
     }
 
-    // Get current variant to check experiment_id
-    const { data: currentVariant, error: fetchError } = await supabase
-      .from('variants')
-      .select('experiment_id, weight')
-      .eq('id', id)
-      .single()
+    // Get current variant to check experimentId
+    const currentVariant = await getVariantById(id)
 
-    if (fetchError || !currentVariant) {
+    if (!currentVariant) {
       return NextResponse.json(
         { error: 'Variant not found' },
         { status: 404 }
       )
     }
 
-    // Build update object
+    // Build update object (accept camelCase from frontend)
     const updateData: any = {}
     if (body.weight !== undefined) updateData.weight = Number(body.weight)
-    if (body.display_name !== undefined) updateData.display_name = body.display_name
+    if (body.displayName !== undefined) updateData.displayName = body.displayName
     if (body.config !== undefined) updateData.config = body.config
 
-    // Update variant
-    const { data: variant, error: updateError } = await supabase
-      .from('variants')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single()
+    // Update variant (only if validation passed)
+    const variant = await updateVariant(id, updateData)
 
-    if (updateError) throw updateError
-
-    // If weight was updated, validate total weight for experiment
+    // If weight was updated, sync trafficAllocation in experiment
     if (body.weight !== undefined) {
-      const { data: allVariants, error: variantsError } = await supabase
-        .from('variants')
-        .select('weight')
-        .eq('experiment_id', currentVariant.experiment_id)
+      const experiment = await getExperimentById(currentVariant.experimentId)
 
-      if (!variantsError && allVariants) {
-        const totalWeight = allVariants.reduce((sum, v) => sum + v.weight, 0)
+      if (experiment && experiment.trafficAllocation) {
+        // Update trafficAllocation array with new weight
+        const updatedAllocation = (experiment.trafficAllocation as any[]).map((item: any) => {
+          if (item.id === id) {
+            return {
+              ...item,
+              weight: updateData.weight,
+            }
+          }
+          return item
+        })
 
-        // Return warning if total weight is not 100
-        if (totalWeight !== 100) {
-          return NextResponse.json({
-            variant,
-            warning: `Total weight is ${totalWeight}%. Please adjust to 100%.`,
-            totalWeight
-          })
-        }
+        // Update experiment with new trafficAllocation
+        await updateExperiment(currentVariant.experimentId, {
+          trafficAllocation: updatedAllocation
+        })
       }
     }
 

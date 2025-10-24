@@ -3,7 +3,7 @@
  * 统计数据聚合函数 - 从原始 experiment_stats 数据聚合出完整指标
  */
 
-import type { Database } from '@/lib/supabase/types'
+import type { Variant } from '@/lib/db/schema'
 import type {
   VariantMetrics,
   VariantComparison,
@@ -22,8 +22,7 @@ import {
   calculateMonthlyImpact,
 } from './types'
 
-type ExperimentStatsRow = Database['public']['Tables']['experiment_stats']['Row']
-type VariantRow = Database['public']['Tables']['variants']['Row']
+type VariantRow = Variant
 
 /**
  * 已聚合的变体指标数据（来自数据库）
@@ -41,12 +40,12 @@ export interface AggregatedTotals {
  */
 export interface TimeSeriesRow {
   date: string
-  variant_id: string
+  variantId: string
   visitors: number
   impressions: number
   clicks: number
   orders: number
-  revenue: number
+  revenue: string | number
 }
 
 /**
@@ -81,8 +80,8 @@ export function aggregateVariantMetrics(
 
   return {
     variant_id: variant.id,
-    variant_name: variant.display_name,
-    is_control: variant.is_control,
+    variant_name: variant.displayName,
+    is_control: variant.isControl,
 
     visitors: totals.visitors,
     impressions: totals.impressions,
@@ -272,13 +271,13 @@ export function aggregateTimeSeriesData(
 ): TimeSeriesDataPoint[] {
   // 创建 variant_id -> variant_name 的映射
   const variantNameMap = new Map(
-    variants.map((v) => [v.id, v.display_name])
+    variants.map((v) => [v.id, v.displayName])
   )
 
   return timeSeriesRows.map((row) => ({
     date: row.date,
-    variant_id: row.variant_id,
-    variant_name: variantNameMap.get(row.variant_id),
+    variant_id: row.variantId,
+    variant_name: variantNameMap.get(row.variantId),
     visitors: row.visitors,
     orders: row.orders,
     revenue: row.revenue,
