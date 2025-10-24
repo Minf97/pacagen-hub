@@ -46,7 +46,8 @@ done
 # =====================================================
 echo "🔄 Running database migrations..."
 
-if npm run db:migrate; then
+# Use npx to ensure drizzle-kit is found
+if npx drizzle-kit migrate; then
   echo "✅ Database migrations completed successfully"
 else
   echo "⚠️  Database migrations failed, but continuing..."

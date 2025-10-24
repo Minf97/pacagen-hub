@@ -75,11 +75,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 COPY --from=builder --chown=nextjs:nodejs /app/lib/db ./lib/db
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./drizzle.config.ts
 
-# Copy package.json for drizzle-kit commands
+# Copy package files and install drizzle-kit
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/package-lock.json ./package-lock.json
 
-# Install drizzle-kit for migrations (production)
-RUN npm install drizzle-kit --production && \
+# Install drizzle-kit and required dependencies
+RUN npm install drizzle-kit drizzle-orm postgres --omit=dev && \
     npm cache clean --force
 
 # Copy entrypoint script
