@@ -35,6 +35,8 @@ COPY . .
 # Set build-time environment variables
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+# Placeholder DATABASE_URL for build-time (prevents errors during "Collecting page data")
+ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 
 # Build Next.js application
 # Note: We're not using --turbopack in production build
