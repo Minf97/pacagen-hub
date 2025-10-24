@@ -71,24 +71,24 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
 # Copy database files (migrations and schema)
-COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
-COPY --from=builder --chown=nextjs:nodejs /app/lib/db ./lib/db
-COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./drizzle.config.ts
+COPY --from=builder /app/drizzle ./drizzle
+COPY --from=builder /app/lib/db ./lib/db
+COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
 
-# Copy package files and install drizzle-kit
+# Copy package files for migrations
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/package-lock.json ./package-lock.json
 
-# Install drizzle-kit and required dependencies
-RUN npm install drizzle-kit drizzle-orm postgres --omit=dev && \
-    npm cache clean --force
+# Copy node_modules from builder (includes drizzle-kit and all dependencies)
+# This is needed for migrations to work
+COPY --from=builder /app/node_modules ./node_modules
 
 # Copy entrypoint script
-COPY --chown=nextjs:nodejs docker-entrypoint.sh /usr/local/bin/
+COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Change ownership
-RUN chown -R nextjs:nodejs /app
+# Change ownership to nextjs user
+RUN chown -R nextjs:nodejs /app /usr/local/bin/docker-entrypoint.sh
 
 # Switch to non-root user
 USER nextjs
