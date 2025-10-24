@@ -108,7 +108,7 @@ services:
     image: node:20-alpine
     container_name: pacagen_hub_drizzle_studio
     working_dir: /app
-    command: sh -c "npm install drizzle-kit && npx drizzle-kit studio --host 0.0.0.0 --port 4983"
+    command: sh -c "npm install drizzle-kit drizzle-orm postgres && npx drizzle-kit studio --host 0.0.0.0 --port 4983"
     ports:
       - '4983:4983'
     environment:
@@ -117,6 +117,7 @@ services:
       - ./drizzle:/app/drizzle
       - ./lib/db:/app/lib/db
       - ./drizzle.config.ts:/app/drizzle.config.ts
+      - ./package.json:/app/package.json
     depends_on:
       postgres:
         condition: service_healthy
@@ -127,7 +128,7 @@ services:
       resources:
         limits:
           cpus: '0.25'
-          memory: 256M
+          memory: 512M
 
   # =====================================================
   # Nginx Reverse Proxy
