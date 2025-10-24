@@ -35,8 +35,6 @@ COPY . .
 # Set build-time environment variables
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-# Placeholder DATABASE_URL for build time (will be overridden at runtime)
-ENV DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
 
 # Build Next.js application
 # Note: We're not using --turbopack in production build
@@ -82,6 +80,10 @@ COPY --from=builder /app/package.json ./package.json
 RUN npm install drizzle-kit --production && \
     npm cache clean --force
 
+# Copy entrypoint script
+COPY --chown=nextjs:nodejs docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Change ownership
 RUN chown -R nextjs:nodejs /app
 
@@ -95,5 +97,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3000/api/health || exit 1
 
-# Start application
-CMD ["node", "server.js"]
+# Start application using entrypoint script
+# Script will: wait for DB → run migrations → start app
+CMD ["/usr/local/bin/docker-entrypoint.sh"]

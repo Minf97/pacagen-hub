@@ -5,6 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { getAllExperiments } from '@/lib/db/queries';
 import type { Experiment } from '@/lib/db/schema';
 
+// Force dynamic rendering - experiments data changes frequently
+export const dynamic = 'force-dynamic';
+
 // Status badge component
 function StatusBadge({ status }: { status: Experiment['status'] }) {
   const styles = {
