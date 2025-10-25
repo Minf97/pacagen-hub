@@ -240,6 +240,22 @@ export async function incrementConversionStats(
   );
 }
 
+export async function incrementImpression(
+  experimentId: string,
+  variantId: string,
+  date: string,
+  userId: string
+) {
+  await db.execute(
+    sql`SELECT increment_impression(
+      ${experimentId}::uuid,
+      ${variantId}::uuid,
+      ${date}::date,
+      ${userId}::text
+    )`
+  );
+}
+
 // =====================================================
 // EXPERIMENT WITH FULL STATS (complex query)
 // =====================================================
@@ -285,4 +301,18 @@ export async function getExperimentSummary() {
     .leftJoin(experimentStats, eq(experiments.id, experimentStats.experimentId))
     .groupBy(experiments.id, experiments.name, experiments.status, experiments.startedAt, experiments.endedAt)
     .orderBy(desc(experiments.createdAt));
+}
+
+// =====================================================
+// ACTIVE EXPERIMENTS (for Hydrogen AB testing)
+// =====================================================
+
+export async function getActiveExperiments() {
+  return db.query.experiments.findMany({
+    where: eq(experiments.status, 'running'),
+    with: {
+      variants: true,
+    },
+    orderBy: [desc(experiments.createdAt)],
+  });
 }

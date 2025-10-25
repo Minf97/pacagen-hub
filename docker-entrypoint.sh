@@ -56,6 +56,58 @@ else
 fi
 
 # =====================================================
+# Apply SQL Functions
+# =====================================================
+echo "🔧 Applying database functions..."
+
+# Extract database credentials from DATABASE_URL
+# Format: postgresql://user:pass@host:port/dbname
+DB_USER=$(echo $DATABASE_URL | sed -n 's/postgresql:\/\/\([^:]*\):.*/\1/p')
+DB_PASS=$(echo $DATABASE_URL | sed -n 's/postgresql:\/\/[^:]*:\([^@]*\)@.*/\1/p')
+DB_NAME=$(echo $DATABASE_URL | sed -n 's/.*\/\([^?]*\).*/\1/p')
+
+# Default values if extraction fails
+DB_USER=${DB_USER:-pacagen}
+DB_NAME=${DB_NAME:-pacagen_hub_prod}
+
+# Set password for psql (avoid password prompt)
+export PGPASSWORD="$DB_PASS"
+
+echo "📍 Applying functions to database: $DB_NAME as user: $DB_USER"
+
+# Apply all SQL functions from drizzle/functions directory
+FUNCTIONS_DIR="./drizzle/functions"
+
+if [ -d "$FUNCTIONS_DIR" ]; then
+  FUNCTION_COUNT=0
+
+  for sql_file in "$FUNCTIONS_DIR"/*.sql; do
+    if [ -f "$sql_file" ]; then
+      FUNCTION_NAME=$(basename "$sql_file")
+      echo "  📄 Applying function: $FUNCTION_NAME"
+
+      if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$sql_file" -q; then
+        echo "  ✅ $FUNCTION_NAME applied successfully"
+        FUNCTION_COUNT=$((FUNCTION_COUNT + 1))
+      else
+        echo "  ⚠️  Failed to apply $FUNCTION_NAME, but continuing..."
+      fi
+    fi
+  done
+
+  if [ $FUNCTION_COUNT -gt 0 ]; then
+    echo "✅ Applied $FUNCTION_COUNT database functions"
+  else
+    echo "ℹ️  No SQL functions found to apply"
+  fi
+else
+  echo "ℹ️  Functions directory not found, skipping..."
+fi
+
+# Clear password from environment
+unset PGPASSWORD
+
+# =====================================================
 # Start Application
 # =====================================================
 echo "🎉 Starting Next.js application..."
