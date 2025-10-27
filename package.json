@@ -37,7 +37,7 @@
     "code-inspector-plugin": "^1.2.10",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
-    "drizzle-orm": "^0.44.6",
+    "drizzle-orm": "0.44.6",
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.2",
     "lucide-react": "^0.545.0",
