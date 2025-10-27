@@ -6,6 +6,12 @@ export function middleware(request: NextRequest) {
   const isApiLogin = request.nextUrl.pathname === '/api/login'
   const authCookie = request.cookies.get('auth')
 
+  // Allow A/B test client requests (from headless storefront)
+  const isABTestClient = request.headers.get('X-AB-Test-Client') === 'headless-storefront'
+  if (isABTestClient) {
+    return NextResponse.next()
+  }
+
   // Allow access to login page and login API
   if (isLoginPage || isApiLogin) {
     return NextResponse.next()
