@@ -81,9 +81,11 @@ export const MOCK_WEBHOOK_DATA = {
         "local-445011c220d323daf18b65c9f7b1aa8aa520f302ef872bf000339827c9b03319",
     },
     { name: "igId", value: "ig_180019edf4a234a945829bc50dfbf563fd51" },
-    { name: "pacagen_hub_ab_user_id", value: "test-user-123" },
-    { name: "pacagen_hub_ab_variant_id", value: "521036cb-64f4-4493-a5b3-d3df1a828b78" },
-    { name: "pacagen_hub_ab_experiment_id", value: "2e64d8b5-a81e-44ee-82b4-8c1571b112bf" },
+    { name: "paca_hub_ab_uid", value: "test-user-123" },
+    {
+      name: "paca_hub_ab_variants_group",
+      value: '["521036cb-64f4-4493-a5b3-d3df1a828b78"]'
+    },
   ],
   number: 87940,
   order_number: 88940,

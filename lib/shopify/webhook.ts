@@ -1,5 +1,6 @@
 import { ShopifyOrder } from '@/types/webhook'
 import crypto from 'crypto'
+import { AB_TEST_COOKIE_PREFIX } from '../constants'
 
 
 
@@ -8,8 +9,7 @@ import crypto from 'crypto'
  */
 export interface OrderExperimentInfo {
   userId: string
-  experimentId?: string
-  variantId?: string
+  variantsGroup: string
   orderId: number
   orderValue: number
   currency: string
@@ -58,24 +58,19 @@ export function verifyShopifyWebhook(
  */
 export function extractExperimentInfo(order: ShopifyOrder): OrderExperimentInfo {
   const noteAttributes = order.note_attributes || []
+  console.log(noteAttributes, "noteAttributes");
 
-  // Extract from note_attributes
-  const experimentId = noteAttributes.find(
-    attr => attr.name === 'pacagen_hub_ab_experiment_id'
-  )?.value
-
-  const variantId = noteAttributes.find(
-    attr => attr.name === 'pacagen_hub_ab_variant_id'
+  const variantsGroup = noteAttributes.find(
+    attr => attr.name === `_${AB_TEST_COOKIE_PREFIX}variants_group`
   )?.value
 
   const userId = noteAttributes.find(
-    attr => attr.name === 'pacagen_hub_ab_user_id'
+    attr => attr.name === `_${AB_TEST_COOKIE_PREFIX}uid`
   )?.value
 
   return {
     userId,
-    experimentId,
-    variantId,
+    variantsGroup,
     orderId: order.id,
     orderValue: parseFloat(order.total_price),
     currency: order.currency,
@@ -86,5 +81,5 @@ export function extractExperimentInfo(order: ShopifyOrder): OrderExperimentInfo 
  * Validate that required experiment fields are present
  */
 export function hasValidExperimentData(info: OrderExperimentInfo): boolean {
-  return !!(info.userId && info.experimentId && info.variantId)
+  return !!(info.userId && info.variantsGroup)
 }

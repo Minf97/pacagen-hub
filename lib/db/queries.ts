@@ -164,8 +164,17 @@ export async function createEvent(data: EventInsert) {
 }
 
 export async function getEventsByExperiment(experimentId: string, limit = 100) {
+  // First get all variant IDs for this experiment
+  const experimentVariants = await getVariantsByExperimentId(experimentId);
+  const variantIds = experimentVariants.map(v => v.id);
+
+  if (variantIds.length === 0) {
+    return [];
+  }
+
+  // Query events where variantsGroup overlaps with our variant IDs
   return db.query.events.findMany({
-    where: eq(events.experimentId, experimentId),
+    where: sql`${events.variantsGroup} && ARRAY[${sql.join(variantIds.map(id => sql`${id}::text`), sql`, `)}]::text[]`,
     orderBy: [desc(events.createdAt)],
     limit,
   });

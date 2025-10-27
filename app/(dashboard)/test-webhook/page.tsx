@@ -17,6 +17,7 @@ import { Loader2, CheckCircle2, XCircle, Send } from "lucide-react";
 
 // Mock Shopify webhook data
 import { MOCK_WEBHOOK_DATA } from "@/lib/utils";
+import { AB_TEST_COOKIE_PREFIX } from "@/lib/constants";
 
 export default function TestWebhookPage() {
   const [loading, setLoading] = useState(false);
@@ -27,9 +28,16 @@ export default function TestWebhookPage() {
   } | null>(null);
 
   // Form fields for A/B test data
-  const [userId, setUserId] = useState(MOCK_WEBHOOK_DATA.note_attributes.find(attr => attr.name === "pacagen_hub_ab_user_id")?.value);
-  const [variantId, setVariantId] = useState(MOCK_WEBHOOK_DATA.note_attributes.find(attr => attr.name === "pacagen_hub_ab_variant_id")?.value);
-  const [experimentId, setExperimentId] = useState(MOCK_WEBHOOK_DATA.note_attributes.find(attr => attr.name === "pacagen_hub_ab_experiment_id")?.value);
+  const [userId, setUserId] = useState(
+    MOCK_WEBHOOK_DATA.note_attributes.find(
+      (attr) => attr.name === `_${AB_TEST_COOKIE_PREFIX}uid`
+    )?.value || "test-user-123"
+  );
+  const [variantsGroup, setVariantsGroup] = useState(
+    MOCK_WEBHOOK_DATA.note_attributes.find(
+      (attr) => attr.name === `_${AB_TEST_COOKIE_PREFIX}variants_group`
+    )?.value || '["521036cb-64f4-4493-a5b3-d3df1a828b78"]'
+  );
 
   const handleSendWebhook = async () => {
     setLoading(true);
@@ -40,9 +48,8 @@ export default function TestWebhookPage() {
       const webhookData = {
         ...MOCK_WEBHOOK_DATA,
         note_attributes: [
-          { name: "pacagen_hub_ab_user_id", value: userId },
-          { name: "pacagen_hub_ab_variant_id", value: variantId },
-          { name: "pacagen_hub_ab_experiment_id", value: experimentId },
+          { name: `_${AB_TEST_COOKIE_PREFIX}uid`, value: userId },
+          { name: `_${AB_TEST_COOKIE_PREFIX}variants_group`, value: variantsGroup },
         ],
       };
 
@@ -92,7 +99,7 @@ export default function TestWebhookPage() {
           <CardHeader>
             <CardTitle>A/B Test Configuration</CardTitle>
             <CardDescription>
-              Enter the experiment and variant IDs to test conversion tracking
+              Enter the user ID and variants group to test conversion tracking
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -110,29 +117,20 @@ export default function TestWebhookPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="experimentId">Experiment ID (Optional)</Label>
-              <Input
-                id="experimentId"
-                value={experimentId}
-                onChange={(e) => setExperimentId(e.target.value)}
-                placeholder="uuid-of-experiment"
-              />
-              <p className="text-xs text-muted-foreground">
-                The UUID of your experiment from the experiments table
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="variantId">Variant ID *</Label>
-              <Input
-                id="variantId"
-                value={variantId}
-                onChange={(e) => setVariantId(e.target.value)}
-                placeholder="uuid-of-variant"
+              <Label htmlFor="variantsGroup">
+                Variants Group (JSON Array) *
+              </Label>
+              <Textarea
+                id="variantsGroup"
+                value={variantsGroup}
+                onChange={(e) => setVariantsGroup(e.target.value)}
+                placeholder='["variantId1", "variantId2"]'
+                rows={4}
                 required
               />
               <p className="text-xs text-muted-foreground">
-                The UUID of the variant from the variants table (required)
+                JSON array of variant IDs the user experienced.
+                Format: {`["variantId1", "variantId2", ...]`}
               </p>
             </div>
           </CardContent>
@@ -200,7 +198,7 @@ export default function TestWebhookPage() {
         <div className="flex justify-end">
           <Button
             onClick={handleSendWebhook}
-            disabled={loading || !variantId}
+            disabled={loading || !variantsGroup || !userId}
             size="lg"
             className="w-full sm:w-auto"
           >

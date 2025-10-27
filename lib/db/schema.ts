@@ -140,8 +140,7 @@ export const events = pgTable(
 
     // Experiment context
     userId: text('user_id').notNull(),
-    experimentId: uuid('experiment_id').references(() => experiments.id, { onDelete: 'set null' }),
-    variantId: uuid('variant_id').references(() => variants.id, { onDelete: 'set null' }),
+    variantsGroup: text('variants_group').array(),
 
     // Event data (flexible JSON)
     eventData: jsonb('event_data').default(sql`'{}'::jsonb`),
@@ -157,8 +156,6 @@ export const events = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    experimentIdx: index('idx_events_experiment').on(table.experimentId, table.createdAt.desc()),
-    variantIdx: index('idx_events_variant').on(table.variantId, table.createdAt.desc()),
     typeIdx: index('idx_events_type').on(table.eventType, table.createdAt.desc()),
     userIdx: index('idx_events_user').on(table.userId, table.createdAt.desc()),
   })
@@ -213,7 +210,6 @@ export const experimentStats = pgTable(
 export const experimentsRelations = relations(experiments, ({ many }) => ({
   variants: many(variants),
   userAssignments: many(userAssignments),
-  events: many(events),
   stats: many(experimentStats),
 }));
 
@@ -223,7 +219,6 @@ export const variantsRelations = relations(variants, ({ one, many }) => ({
     references: [experiments.id],
   }),
   userAssignments: many(userAssignments),
-  events: many(events),
   stats: many(experimentStats),
 }));
 
@@ -234,17 +229,6 @@ export const userAssignmentsRelations = relations(userAssignments, ({ one }) => 
   }),
   variant: one(variants, {
     fields: [userAssignments.variantId],
-    references: [variants.id],
-  }),
-}));
-
-export const eventsRelations = relations(events, ({ one }) => ({
-  experiment: one(experiments, {
-    fields: [events.experimentId],
-    references: [experiments.id],
-  }),
-  variant: one(variants, {
-    fields: [events.variantId],
     references: [variants.id],
   }),
 }));

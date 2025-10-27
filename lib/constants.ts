@@ -1,0 +1,1 @@
+export const AB_TEST_COOKIE_PREFIX = 'paca_hub_ab_'

@@ -43,6 +43,8 @@ export async function POST(request: NextRequest) {
     // Extract A/B test information
     const experimentInfo = extractExperimentInfo(order);
 
+    console.log(experimentInfo, "experimentInfo")
+
     // Check if this order has experiment data
     if (!hasValidExperimentData(experimentInfo)) {
       console.log(`Order #${order.id} has no A/B test data, skipping`);
@@ -52,12 +54,26 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Record conversion event
+    // Parse variantsGroup (expected format: ["variantId1", "variantId2", ...])
+    let variantIds: string[] = [];
+    try {
+      variantIds = JSON.parse(experimentInfo.variantsGroup);
+      if (!Array.isArray(variantIds)) {
+        throw new Error('variantsGroup is not an array');
+      }
+    } catch (parseError) {
+      console.error('Failed to parse variantsGroup:', parseError);
+      return NextResponse.json({
+        success: false,
+        message: 'Invalid variantsGroup format',
+      }, { status: 400 });
+    }
+
+    // Record conversion event with all variant IDs
     const eventData: EventInsert = {
       eventType: 'conversion',
       userId: experimentInfo.userId,
-      experimentId: experimentInfo.experimentId!,
-      variantId: experimentInfo.variantId!,
+      variantsGroup: variantIds,
       eventData: {
         orderId: experimentInfo.orderId,
         orderValue: experimentInfo.orderValue,
@@ -72,23 +88,34 @@ export async function POST(request: NextRequest) {
     // Record conversion event in events table
     await createEvent(eventData);
 
-    // Atomically update experiment stats using database function
+    // Atomically update experiment stats for each variant using database function
     const today = new Date().toISOString().split('T')[0];
 
-    try {
-      await incrementConversionStats(
-        experimentInfo.experimentId!,
-        experimentInfo.variantId!,
-        today,
-        experimentInfo.orderValue
-      );
-    } catch (statsError) {
-      console.error('Error updating stats:', statsError);
+    // Fetch variant details to get experimentIds
+    const { getVariantById } = await import('@/lib/db/queries');
+    const variantDetailsPromises = variantIds.map(id => getVariantById(id));
+    const variantDetailsResults = await Promise.allSettled(variantDetailsPromises);
+
+    const validVariants = variantDetailsResults
+      .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled' && r.value != null)
+      .map(r => r.value);
+
+    // Update stats for each variant
+    const statsResults = await Promise.allSettled(
+      validVariants.map(variant =>
+        incrementConversionStats(variant.experimentId, variant.id, today, experimentInfo.orderValue)
+      )
+    );
+
+    // Log any stats update failures
+    const failures = statsResults.filter(r => r.status === 'rejected');
+    if (failures.length > 0) {
+      console.error('Some stats updates failed:', failures);
       // Don't fail the webhook, event is already recorded
     }
 
     console.log(
-      `Conversion recorded for experiment ${experimentInfo.experimentId}, variant ${experimentInfo.variantId}`
+      `Conversion recorded for ${variantIds.length} variants in order #${order.id}`
     );
 
     return NextResponse.json({
@@ -96,8 +123,8 @@ export async function POST(request: NextRequest) {
       message: 'Conversion recorded successfully',
       data: {
         orderId: experimentInfo.orderId,
-        experimentId: experimentInfo.experimentId,
-        variantId: experimentInfo.variantId,
+        variantsCount: variantIds.length,
+        variantIds,
       },
     });
   } catch (error) {
