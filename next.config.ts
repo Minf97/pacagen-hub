@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
 
+  // Enable instrumentation hook for production logging
+  experimental: {
+    instrumentationHook: true,
+  },
+
   turbopack: {
     rules: codeInspectorPlugin({
       bundler: 'turbopack',
