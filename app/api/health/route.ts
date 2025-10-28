@@ -15,7 +15,13 @@ export async function GET() {
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          // Never cache health checks
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
+      }
     );
   } catch (error) {
     return NextResponse.json(
