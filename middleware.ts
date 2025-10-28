@@ -30,33 +30,31 @@ export function middleware(request: NextRequest) {
   // Start timing
   const startTime = Date.now()
 
-  const isLoginPage = request.nextUrl.pathname === '/login'
-  const isApiLogin = request.nextUrl.pathname === '/api/login'
-  const authCookie = request.cookies.get('auth')
   const pathname = request.nextUrl.pathname
   const method = request.method
 
   // Get client IP for logging
   const clientIp = request.ip || request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip')
 
-  // Allow A/B test client requests (from headless storefront)
-  const isABTestClient = request.headers.get('X-AB-Test-Client') === 'headless-storefront'
-  if (isABTestClient) {
+  // Skip auth for all API routes (they should handle their own auth if needed)
+  const isApiRoute = pathname.startsWith('/api/')
+  if (isApiRoute) {
     const response = NextResponse.next()
     const duration = Date.now() - startTime
     logRequest(method, pathname, 200, duration, clientIp || undefined)
     return response
   }
 
-  // Allow access to login page and login API
-  if (isLoginPage || isApiLogin) {
+  // Skip auth for login page
+  if (pathname === '/login') {
     const response = NextResponse.next()
     const duration = Date.now() - startTime
     logRequest(method, pathname, 200, duration, clientIp || undefined)
     return response
   }
 
-  // Redirect to login if not authenticated
+  // For dashboard pages, check auth cookie
+  const authCookie = request.cookies.get('auth')
   if (!authCookie) {
     const duration = Date.now() - startTime
     logRequest(method, pathname, 302, duration, clientIp || undefined)
