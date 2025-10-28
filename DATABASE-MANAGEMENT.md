@@ -44,44 +44,6 @@ docker exec pacagen_hub_app_prod npm run db:studio
 **On your local browser:**
 Visit `http://localhost:4983`
 
-### Method 3: Deploy Drizzle Studio (⚠️ Use with Caution)
-
-**Best for**: Frequent database inspection, team access
-
-**Deploy:**
-```bash
-cd ~/pacagen-hub
-git pull
-
-# Start with Drizzle Studio service
-docker compose -f docker-compose.prod.yml up -d drizzle-studio
-
-# Verify it's running
-docker ps | grep drizzle
-
-# Check logs
-docker logs pacagen_hub_drizzle_studio
-```
-
-**Access:**
-Visit `http://18.191.75.25:4983`
-
-**⚠️ SECURITY WARNING:**
-- Drizzle Studio has **NO authentication** by default
-- Anyone with your IP can access your database
-- **ONLY use on private networks or with AWS Security Group restrictions**
-
-**Secure Access:**
-```bash
-# Option 1: Restrict in AWS Security Group
-# Only allow port 4983 from your IP address
-
-# Option 2: Stop when not needed
-docker stop pacagen_hub_drizzle_studio
-
-# Option 3: Use SSH tunnel instead (Method 2)
-```
-
 ## 🔄 Database Migrations
 
 ### Check Migration Status
@@ -243,8 +205,7 @@ docker exec -it pacagen_hub_postgres_prod psql -U pacagen -d pacagen_hub_prod -c
 | Run migrations | `docker exec pacagen_hub_app_prod npm run db:migrate` |
 | Create backup | `docker exec pacagen_hub_postgres_prod pg_dump -U pacagen pacagen_hub_prod > backup.sql` |
 | View logs | `docker logs pacagen_hub_postgres_prod` |
-| Start Studio (local) | `docker exec pacagen_hub_app_prod npm run db:studio` |
-| Start Studio (server) | `docker compose -f docker-compose.prod.yml up -d drizzle-studio` |
+| Start Studio (local) | `npm run db:studio` (via SSH tunnel recommended) |
 | Check tables | `docker exec -it pacagen_hub_postgres_prod psql -U pacagen -d pacagen_hub_prod -c "\dt"` |
 
 ---
