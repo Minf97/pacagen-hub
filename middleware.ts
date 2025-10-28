@@ -34,7 +34,7 @@ export function middleware(request: NextRequest) {
   const method = request.method
 
   // Get client IP for logging
-  const clientIp = request.ip || request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip')
+  const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
 
   // Skip auth for all API routes (they should handle their own auth if needed)
   const isApiRoute = pathname.startsWith('/api/')
