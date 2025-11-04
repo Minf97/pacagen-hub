@@ -20,6 +20,9 @@ BLUE_PORT=3000
 GREEN_PORT=3001
 LOG_FILE="$PROJECT_DIR/logs/deployment.log"
 
+# Create log directory
+mkdir -p "$PROJECT_DIR/logs"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -214,9 +217,6 @@ main() {
     log "=========================================="
     log "Starting Blue-Green Deployment"
     log "=========================================="
-
-    # Create log directory
-    mkdir -p "$PROJECT_DIR/logs"
 
     # Change to project directory
     cd "$PROJECT_DIR" || exit 1
