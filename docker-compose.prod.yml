@@ -51,15 +51,15 @@ services:
     mem_swappiness: 0
 
   # =====================================================
-  # Next.js Application (Production)
+  # Next.js Application - Blue Container
   # =====================================================
-  app:
+  app-blue:
     build:
       context: .
       dockerfile: Dockerfile
       args:
         - NODE_ENV=production
-    container_name: pacagen_hub_app_prod
+    container_name: pacagen_app_blue
     restart: always
     ports:
       - '3000:3000'
@@ -71,6 +71,56 @@ services:
       DATABASE_URL: postgresql://pacagen:${POSTGRES_PASSWORD:-CHANGE_THIS_IN_ENV}@postgres:5432/pacagen_hub_prod
       NODE_ENV: production
       PORT: 3000
+      CONTAINER_COLOR: blue
+      # Node.js memory limits for t3.medium (4GB RAM - allow 1.5GB heap)
+      NODE_OPTIONS: '--max-old-space-size=1536'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pacagen_network
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Resource limits (adjusted for single CPU server)
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'
+          memory: 2G
+        reservations:
+          cpus: '0.4'
+          memory: 1G
+    # Prevent OOM killer from killing this container first
+    mem_swappiness: 0
+    # OOM score adjustment (lower = less likely to be killed)
+    oom_score_adj: -500
+
+  # =====================================================
+  # Next.js Application - Green Container
+  # =====================================================
+  app-green:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    container_name: pacagen_app_green
+    restart: always
+    ports:
+      - '3001:3000'
+    env_file:
+      # Load production environment variables
+      - .env.prod
+    environment:
+      # Override DATABASE_URL to use Docker network
+      DATABASE_URL: postgresql://pacagen:${POSTGRES_PASSWORD:-CHANGE_THIS_IN_ENV}@postgres:5432/pacagen_hub_prod
+      NODE_ENV: production
+      PORT: 3000
+      CONTAINER_COLOR: green
       # Node.js memory limits for t3.medium (4GB RAM - allow 1.5GB heap)
       NODE_OPTIONS: '--max-old-space-size=1536'
     depends_on:
