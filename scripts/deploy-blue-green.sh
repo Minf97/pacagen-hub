@@ -20,6 +20,16 @@ BLUE_PORT=3000
 GREEN_PORT=3001
 LOG_FILE="$PROJECT_DIR/logs/deployment.log"
 
+# Detect docker compose command (v1 or v2)
+if command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+elif docker compose version &> /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+else
+    echo "Error: Neither 'docker-compose' nor 'docker compose' found!"
+    exit 1
+fi
+
 # Create log directory
 mkdir -p "$PROJECT_DIR/logs"
 
@@ -193,13 +203,13 @@ rollback() {
     log_error "Deployment failed, initiating rollback..."
 
     # Stop the new container
-    docker-compose -f "$COMPOSE_FILE" stop "app-$new_container" || true
-    docker-compose -f "$COMPOSE_FILE" rm -f "app-$new_container" || true
+    $DOCKER_COMPOSE -f "$COMPOSE_FILE" stop "app-$new_container" || true
+    $DOCKER_COMPOSE -f "$COMPOSE_FILE" rm -f "app-$new_container" || true
 
     # Ensure old container is still running
     if ! docker ps | grep -q "pacagen_app_$old_container"; then
         log_warn "Old container not running, attempting to start..."
-        docker-compose -f "$COMPOSE_FILE" up -d "app-$old_container"
+        $DOCKER_COMPOSE -f "$COMPOSE_FILE" up -d "app-$old_container"
 
         if ! health_check $([ "$old_container" = "blue" ] && echo "$BLUE_PORT" || echo "$GREEN_PORT"); then
             log_error "❌ Rollback failed! Manual intervention required!"
@@ -249,8 +259,8 @@ main() {
 
     # Build and start new container
     log "Building and starting app-$TARGET container..."
-    docker-compose -f "$COMPOSE_FILE" build "app-$TARGET"
-    docker-compose -f "$COMPOSE_FILE" up -d "app-$TARGET"
+    $DOCKER_COMPOSE -f "$COMPOSE_FILE" build "app-$TARGET"
+    $DOCKER_COMPOSE -f "$COMPOSE_FILE" up -d "app-$TARGET"
 
     # Wait for container to be ready
     sleep 10
@@ -279,12 +289,12 @@ main() {
     # Stop old container
     if [ "$CURRENT" != "none" ]; then
         log "Stopping old container: app-$CURRENT..."
-        docker-compose -f "$COMPOSE_FILE" stop "app-$CURRENT"
+        $DOCKER_COMPOSE -f "$COMPOSE_FILE" stop "app-$CURRENT"
         log "✅ Old container stopped"
 
         # Remove old container to save space
         log "Removing old container..."
-        docker-compose -f "$COMPOSE_FILE" rm -f "app-$CURRENT" || true
+        $DOCKER_COMPOSE -f "$COMPOSE_FILE" rm -f "app-$CURRENT" || true
     fi
 
     # Post-deployment cleanup
