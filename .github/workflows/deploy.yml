@@ -56,11 +56,11 @@ jobs:
             git reset --hard origin/main
 
             # Make deployment script executable
-            chmod +x scripts/deploy.sh
+            chmod +x scripts/deploy-blue-green.sh
 
             # Run deployment script
             echo "Running Blue-Green deployment..."
-            ./scripts/deploy.sh
+            ./scripts/deploy-blue-green.sh
 
             echo "=========================================="
             echo "Deployment completed at $(date)"

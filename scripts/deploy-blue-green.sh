@@ -42,6 +42,80 @@ log_warn() {
 }
 
 # =====================================================
+# Disk Space Check and Cleanup
+# =====================================================
+check_disk_space() {
+    log "Checking disk space..."
+
+    # Get available space in GB
+    AVAILABLE_SPACE=$(df -BG "$PROJECT_DIR" | tail -1 | awk '{print $4}' | sed 's/G//')
+
+    log "Available disk space: ${AVAILABLE_SPACE}GB"
+
+    # If less than 2GB available, run aggressive cleanup
+    if [ "$AVAILABLE_SPACE" -lt 2 ]; then
+        log_warn "⚠️  Low disk space detected (${AVAILABLE_SPACE}GB)! Running cleanup..."
+        cleanup_disk
+    elif [ "$AVAILABLE_SPACE" -lt 5 ]; then
+        log_warn "⚠️  Disk space is running low (${AVAILABLE_SPACE}GB). Running light cleanup..."
+        cleanup_disk
+    else
+        log "✅ Sufficient disk space available"
+    fi
+}
+
+cleanup_disk() {
+    log "🧹 Starting disk cleanup..."
+
+    # 1. Remove stopped containers
+    log "Removing stopped containers..."
+    docker ps -aq --filter "status=exited" | xargs -r docker rm -f 2>/dev/null || true
+
+    # 2. Remove dangling images
+    log "Removing dangling images..."
+    docker images -f "dangling=true" -q | xargs -r docker rmi -f 2>/dev/null || true
+
+    # 3. Clean build cache aggressively
+    log "Cleaning build cache..."
+    docker builder prune -af 2>/dev/null || true
+
+    # 4. Remove old images (keep only last 2)
+    log "Removing old images (keeping last 2)..."
+    docker images --format "{{.Repository}}:{{.Tag}} {{.ID}} {{.CreatedAt}}" | \
+        grep -E "pacagen|node" | \
+        sort -k3 -r | \
+        tail -n +3 | \
+        awk '{print $2}' | \
+        xargs -r docker rmi -f 2>/dev/null || true
+
+    # 5. Clean Docker system (unused data)
+    log "Running system prune..."
+    docker system prune -af --volumes 2>/dev/null || true
+
+    # 6. Truncate large log files
+    log "Cleaning large container logs..."
+    sudo find /var/lib/docker/containers/ -name "*-json.log" -size +50M -exec truncate -s 10M {} \; 2>/dev/null || true
+
+    # 7. Clean application logs
+    if [ -d "$PROJECT_DIR/logs" ]; then
+        log "Cleaning application logs..."
+        find "$PROJECT_DIR/logs" -type f -name "*.log" -mtime +7 -delete 2>/dev/null || true
+        find "$PROJECT_DIR/logs" -type f -name "*.log" -size +100M -exec truncate -s 10M {} \; 2>/dev/null || true
+    fi
+
+    # Show results
+    AVAILABLE_SPACE_AFTER=$(df -BG "$PROJECT_DIR" | tail -1 | awk '{print $4}' | sed 's/G//')
+    log "✅ Cleanup complete! Available space: ${AVAILABLE_SPACE_AFTER}GB"
+
+    # If still less than 1GB, abort deployment
+    if [ "$AVAILABLE_SPACE_AFTER" -lt 1 ]; then
+        log_error "❌ Critical: Still less than 1GB free space after cleanup!"
+        log_error "Please manually free up disk space before deploying."
+        exit 1
+    fi
+}
+
+# =====================================================
 # Health Check Function
 # =====================================================
 health_check() {
@@ -147,6 +221,9 @@ main() {
     # Change to project directory
     cd "$PROJECT_DIR" || exit 1
 
+    # Check disk space and cleanup if needed
+    check_disk_space
+
     # Determine current and target containers
     CURRENT=$(get_active_container)
 
@@ -204,11 +281,24 @@ main() {
         log "Stopping old container: app-$CURRENT..."
         docker-compose -f "$COMPOSE_FILE" stop "app-$CURRENT"
         log "✅ Old container stopped"
+
+        # Remove old container to save space
+        log "Removing old container..."
+        docker-compose -f "$COMPOSE_FILE" rm -f "app-$CURRENT" || true
     fi
 
-    # Cleanup old images (keep last 3)
-    log "Cleaning up old Docker images..."
-    docker image prune -f
+    # Post-deployment cleanup
+    log "Running post-deployment cleanup..."
+
+    # Remove dangling images
+    docker image prune -f 2>/dev/null || true
+
+    # Clean up old images of the stopped container
+    docker images | grep "pacagen" | grep "<none>" | awk '{print $3}' | xargs -r docker rmi -f 2>/dev/null || true
+
+    # Show final disk usage
+    FINAL_SPACE=$(df -BG "$PROJECT_DIR" | tail -1 | awk '{print $4}' | sed 's/G//')
+    log "Final available disk space: ${FINAL_SPACE}GB"
 
     log "=========================================="
     log "✅ Deployment completed successfully!"
