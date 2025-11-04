@@ -1,6 +1,7 @@
 import { ShopifyOrder } from '@/types/webhook'
 import crypto from 'crypto'
 import { AB_TEST_COOKIE_PREFIX } from '../constants'
+import { logger } from '../logger'
 
 
 
@@ -58,7 +59,7 @@ export function verifyShopifyWebhook(
  */
 export function extractExperimentInfo(order: ShopifyOrder): OrderExperimentInfo {
   const noteAttributes = order.note_attributes || []
-  console.log(noteAttributes, "noteAttributes");
+  logger.debug('noteAttributes', { noteAttributes });
 
   const variantsGroup = noteAttributes.find(
     attr => attr.name === `_${AB_TEST_COOKIE_PREFIX}variants_group`
