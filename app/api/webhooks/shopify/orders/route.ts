@@ -3,6 +3,9 @@ import { extractExperimentInfo, hasValidExperimentData } from '@/lib/shopify/web
 import { createEvent, incrementConversionStats } from '@/lib/db/queries';
 import { shopifyOrderSchema } from '@/lib/validations/webhook';
 import type { EventInsert } from '@/lib/db/schema';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('webhook:shopify');
 
 /**
  * POST /api/webhooks/shopify/orders
@@ -17,7 +20,7 @@ export async function POST(request: NextRequest) {
     const hmacHeader = request.headers.get('x-shopify-hmac-sha256');
 
     if (!hmacHeader) {
-      console.warn('Missing HMAC header in webhook request');
+      logger.warn('Missing HMAC header in webhook request');
       return NextResponse.json({ error: 'Missing HMAC signature' }, { status: 401 });
     }
 
@@ -27,7 +30,7 @@ export async function POST(request: NextRequest) {
       order = JSON.parse(rawBody);
       const validation = shopifyOrderSchema.safeParse(order);
       if (!validation.success) {
-        console.error('Invalid Shopify order data:', validation.error);
+        logger.error('Invalid Shopify order data', { error: validation.error });
         return NextResponse.json(
           { error: 'Invalid order data', details: validation.error.format() },
           { status: 400 }
@@ -38,16 +41,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
 
-    console.log(`Processing Shopify order #${order.id}`);
+    logger.info('Processing Shopify order', { orderId: order.id });
 
     // Extract A/B test information
     const experimentInfo = extractExperimentInfo(order);
 
-    console.log(experimentInfo, "experimentInfo")
+    logger.debug('Experiment info extracted', { experimentInfo });
 
     // Check if this order has experiment data
     if (!hasValidExperimentData(experimentInfo)) {
-      console.log(`Order #${order.id} has no A/B test data, skipping`);
+      logger.info('Order has no A/B test data, skipping', { orderId: order.id });
       return NextResponse.json({
         success: true,
         message: 'Order recorded but no experiment data found',
@@ -62,7 +65,7 @@ export async function POST(request: NextRequest) {
         throw new Error('variantsGroup is not an array');
       }
     } catch (parseError) {
-      console.error('Failed to parse variantsGroup:', parseError);
+      logger.error('Failed to parse variantsGroup', { error: parseError });
       return NextResponse.json({
         success: false,
         message: 'Invalid variantsGroup format',
@@ -110,13 +113,15 @@ export async function POST(request: NextRequest) {
     // Log any stats update failures
     const failures = statsResults.filter(r => r.status === 'rejected');
     if (failures.length > 0) {
-      console.error('Some stats updates failed:', failures);
+      logger.error('Some stats updates failed', { failures });
       // Don't fail the webhook, event is already recorded
     }
 
-    console.log(
-      `Conversion recorded for ${variantIds.length} variants in order #${order.id}`
-    );
+    logger.info('Conversion recorded successfully', {
+      orderId: order.id,
+      variantsCount: variantIds.length,
+      variantIds
+    });
 
     return NextResponse.json({
       success: true,
@@ -128,7 +133,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Webhook processing error:', error);
+    logger.error('Webhook processing error', { error });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
