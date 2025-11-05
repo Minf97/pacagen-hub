@@ -171,24 +171,54 @@ get_active_container() {
 # =====================================================
 update_nginx() {
     local target_container=$1
+    local target_port=""
     local nginx_config="/etc/nginx/sites-enabled/pacagen-hub"
 
-    log "Updating Nginx to route traffic to $target_container..."
-
-    # Update upstream in nginx config
+    # Determine target port
     if [ "$target_container" = "blue" ]; then
-        sudo sed -i 's/server localhost:3001/server localhost:3000/g' "$nginx_config"
+        target_port="3000"
     else
-        sudo sed -i 's/server localhost:3000/server localhost:3001/g' "$nginx_config"
+        target_port="3001"
     fi
+
+    log "Updating Nginx to route traffic to $target_container (port $target_port)..."
+
+    # Check if Nginx config exists
+    if [ ! -f "$nginx_config" ]; then
+        log_warn "Nginx config not found at $nginx_config"
+        return 1
+    fi
+
+    # Backup current config
+    sudo cp "$nginx_config" "${nginx_config}.backup.$(date +%Y%m%d_%H%M%S)"
+    log "Config backed up to ${nginx_config}.backup.$(date +%Y%m%d_%H%M%S)"
+
+    # Update upstream block using markers
+    # This replaces the entire server line between BLUE_GREEN_MARKER_START and BLUE_GREEN_MARKER_END
+    sudo sed -i "/# BLUE_GREEN_MARKER_START/,/# BLUE_GREEN_MARKER_END/{
+        /# BLUE_GREEN_MARKER_START/!{
+            /# BLUE_GREEN_MARKER_END/!{
+                d
+            }
+        }
+    }" "$nginx_config"
+
+    # Insert new server line
+    sudo sed -i "/# BLUE_GREEN_MARKER_START/a\\    server localhost:${target_port} max_fails=3 fail_timeout=30s;" "$nginx_config"
 
     # Test nginx configuration
     if sudo nginx -t > /dev/null 2>&1; then
         sudo nginx -s reload
         log "✅ Nginx configuration updated and reloaded"
+        log "Traffic now pointing to port $target_port ($target_container container)"
         return 0
     else
         log_error "❌ Nginx configuration test failed"
+        log_error "Restoring backup..."
+
+        # Restore backup
+        sudo cp "${nginx_config}.backup.$(date +%Y%m%d_%H%M%S)" "$nginx_config"
+
         return 1
     fi
 }
