@@ -1,3 +1,7 @@
+-- Migration: Update increment_impression function
+-- Description: Changes unique_users calculation from simple increment to accurate COUNT from user_assignments
+-- Created: 2025-01-05
+
 -- =====================================================
 -- Function: Atomically increment impression stats
 -- =====================================================
@@ -74,4 +78,3 @@ END;
 $$;
 
 COMMENT ON FUNCTION increment_impression IS 'Atomically increments impression stats for an experiment variant. Calculates unique_users from user_assignments table for accurate counting. Uses ON CONFLICT to prevent race conditions.';
-

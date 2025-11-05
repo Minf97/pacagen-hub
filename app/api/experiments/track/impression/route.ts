@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { incrementImpression } from '@/lib/db/queries';
+import {
+  incrementImpression,
+  getUserAssignment,
+  createUserAssignment
+} from '@/lib/db/queries';
+import { getDeviceType } from '@/lib/utils/user-agent';
 
 /**
  * POST /api/experiments/track/impression
@@ -33,7 +38,27 @@ export async function POST(request: Request) {
     // Use provided date or default to today
     const impressionDate = date || new Date().toISOString().split('T')[0];
 
-    // Record the impression
+    // Extract user context from request headers
+    const userAgent = request.headers.get('user-agent')
+    const deviceType = getDeviceType(userAgent)
+
+    // Check if user already has an assignment for this experiment
+    const existingAssignment = await getUserAssignment(user_id, experiment_id)
+
+    // If first impression, create user assignment record
+    if (!existingAssignment) {
+      await createUserAssignment({
+        userId: user_id,
+        experimentId: experiment_id,
+        variantId: variant_id,
+        assignmentMethod: 'hash', // Hydrogen uses consistent hash
+        userAgent: userAgent,
+        deviceType: deviceType === 'unknown' ? null : deviceType,
+        country: null, // TODO: Add GeoIP lookup in future
+      })
+    }
+
+    // Record the impression in stats table
     await incrementImpression(
       experiment_id,
       variant_id,
@@ -43,7 +68,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: 'Impression recorded successfully'
+      message: 'Impression recorded successfully',
+      debug: {
+        isNewUser: !existingAssignment,
+        deviceType,
+      }
     });
 
   } catch (error) {

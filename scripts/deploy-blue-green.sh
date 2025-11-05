@@ -314,14 +314,17 @@ main() {
 
     # Update Nginx (if configured)
     if [ -f "/etc/nginx/sites-enabled/pacagen-hub" ]; then
-        if ! update_nginx "$TARGET"; then
-            rollback "$CURRENT" "$TARGET"
-            exit 1
+        log "Attempting to update Nginx configuration..."
+        if update_nginx "$TARGET"; then
+            log "✅ Nginx updated successfully"
+            # Wait for connection draining
+            log "Waiting 10s for connection draining..."
+            sleep 10
+        else
+            log_warn "⚠️  Nginx update failed, but deployment will continue"
+            log_warn "Please manually update Nginx to point to port $TARGET_PORT"
+            log_warn "You can run: sudo sed -i 's/localhost:[0-9]*/localhost:$TARGET_PORT/' /etc/nginx/sites-enabled/pacagen-hub && sudo nginx -s reload"
         fi
-
-        # Wait for connection draining
-        log "Waiting 10s for connection draining..."
-        sleep 10
     else
         log_warn "Nginx config not found, skipping traffic switch"
         log_warn "Make sure to update your load balancer manually"
