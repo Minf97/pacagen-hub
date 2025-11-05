@@ -4,7 +4,6 @@ import { twMerge } from "tailwind-merge";
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-
 export const MOCK_WEBHOOK_DATA = {
   id: 6801619878202,
   admin_graphql_api_id: "gid://shopify/Order/6801619878202",
