@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getExperimentById, getVariantTotals, getExperimentTimeSeries } from '@/lib/db/queries'
+import {
+  getExperimentById,
+  getVariantTotals,
+  getExperimentTimeSeries,
+  getVariantTotalsByDevice
+} from '@/lib/db/queries'
 import type { ExperimentWithVariants } from '@/lib/db/schema'
 import {
   aggregateVariantMetrics,
@@ -133,9 +138,47 @@ export async function GET(
       experimentWithVariants.variants
     )
 
+    // 9. 获取设备分段数据 (Desktop/Mobile)
+    const desktopTotals = await getVariantTotalsByDevice(experimentId, 'desktop')
+    const mobileTotals = await getVariantTotalsByDevice(experimentId, 'mobile')
+
+    // 10. 聚合设备分段指标
+    const processDeviceSegment = (deviceTotals: typeof desktopTotals) => {
+      const deviceMetrics = experimentWithVariants.variants
+        .map((variant) => {
+          const totals = deviceTotals.find((t) => t.variantId === variant.id)
+          if (!totals) return null
+          return aggregateVariantMetrics(
+            {
+              visitors: Number(totals.totalVisitors),
+              impressions: Number(totals.totalImpressions),
+              clicks: Number(totals.totalClicks),
+              orders: Number(totals.totalOrders),
+              revenue: Number(totals.totalRevenue),
+            },
+            variant
+          )
+        })
+        .filter((m): m is NonNullable<typeof m> => m !== null)
+
+      if (deviceMetrics.length === 0) return []
+
+      const deviceControl = deviceMetrics.find(m => m.is_control) || deviceMetrics[0]
+      return deviceMetrics.map((metrics) =>
+        compareVariantToControl(metrics, deviceControl)
+      )
+    }
+
+    const desktopVariants = processDeviceSegment(desktopTotals)
+    const mobileVariants = processDeviceSegment(mobileTotals)
+
     return NextResponse.json({
       summary,
       time_series,
+      segmentData: {
+        desktop: desktopVariants,
+        mobile: mobileVariants,
+      },
     })
   } catch (error) {
     console.error('Error fetching experiment stats:', error)

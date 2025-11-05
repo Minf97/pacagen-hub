@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import type { Experiment, Variant } from '@/lib/db/schema'
-import type { ExperimentSummary, TimeSeriesDataPoint } from '@/lib/analytics/types'
+import type { ExperimentSummary, TimeSeriesDataPoint, VariantComparison } from '@/lib/analytics/types'
 import { MetricCard } from '@/components/analytics/MetricCard'
 import { MetricComparisonChart } from '@/components/analytics/MetricComparisonChart'
 import { VariantComparisonTable } from '@/components/analytics/VariantComparisonTable'
@@ -23,6 +23,10 @@ interface ExperimentWithVariants extends Experiment {
 interface StatsData {
   summary: ExperimentSummary
   time_series: TimeSeriesDataPoint[]
+  segmentData?: {
+    desktop?: VariantComparison[]
+    mobile?: VariantComparison[]
+  }
 }
 
 export default function ExperimentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -445,7 +449,10 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
                   {/* Detailed Comparison Table */}
                   <div>
                     <h3 className="text-lg font-semibold mb-4">Detailed Breakdown</h3>
-                    <VariantComparisonTable variants={stats.summary.variants} />
+                    <VariantComparisonTable
+                      variants={stats.summary.variants}
+                      segmentData={stats.segmentData}
+                    />
                   </div>
 
                   {/* Statistical Significance Note */}

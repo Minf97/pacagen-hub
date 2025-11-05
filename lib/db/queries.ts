@@ -213,6 +213,61 @@ export async function getVariantTotals(experimentId: string) {
     .groupBy(experimentStats.variantId);
 }
 
+/**
+ * Get variant totals segmented by device type
+ * Aggregates statistics from user assignments and events
+ */
+export async function getVariantTotalsByDevice(experimentId: string, deviceType: 'desktop' | 'mobile') {
+  // Get visitor counts from user_assignments
+  const visitorStats = await db
+    .select({
+      variantId: userAssignments.variantId,
+      totalVisitors: sql<number>`count(distinct ${userAssignments.userId})`,
+    })
+    .from(userAssignments)
+    .where(
+      and(
+        eq(userAssignments.experimentId, experimentId),
+        eq(userAssignments.deviceType, deviceType)
+      )
+    )
+    .groupBy(userAssignments.variantId);
+
+  // Get conversion metrics from events joined with user_assignments
+  const conversionStats = await db
+    .select({
+      variantId: userAssignments.variantId,
+      totalOrders: sql<number>`count(distinct ${events.id})`,
+      totalRevenue: sql<string>`coalesce(sum(cast(${events.eventData}->>'orderValue' as numeric)), 0)`,
+    })
+    .from(events)
+    .innerJoin(
+      userAssignments,
+      and(
+        eq(events.userId, userAssignments.userId),
+        eq(userAssignments.experimentId, experimentId),
+        eq(userAssignments.deviceType, deviceType)
+      )
+    )
+    .where(eq(events.eventType, 'conversion'))
+    .groupBy(userAssignments.variantId);
+
+  // Merge visitor and conversion stats
+  const conversionMap = new Map(
+    conversionStats.map(stat => [stat.variantId, stat])
+  );
+
+  return visitorStats.map(visitor => ({
+    variantId: visitor.variantId,
+    totalVisitors: visitor.totalVisitors,
+    totalImpressions: visitor.totalVisitors, // Use visitors as impressions approximation
+    totalClicks: 0, // Not tracked in current schema
+    totalOrders: conversionMap.get(visitor.variantId)?.totalOrders || 0,
+    totalRevenue: conversionMap.get(visitor.variantId)?.totalRevenue || '0',
+    dayCount: 0, // Not applicable for device segmentation
+  }));
+}
+
 export async function getExperimentTimeSeries(experimentId: string) {
   return db
     .select({
