@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
     let order;
     try {
       order = JSON.parse(rawBody);
+      logger.debug('rawBody', order);
       const validation = shopifyOrderSchema.safeParse(order);
       if (!validation.success) {
         logger.error('Invalid Shopify order data', { error: validation.error });
@@ -42,8 +43,6 @@ export async function POST(request: NextRequest) {
     }
 
     logger.info('Processing Shopify order', { orderId: order.id });
-    logger.debug('order', { order });
-
 
     // Extract A/B test information
     const experimentInfo = extractExperimentInfo(order);

@@ -73,9 +73,8 @@ export function TrendChart({
       formatter: (params: any) => {
         let result = `<div style="padding: 8px"><strong>${params[0].axisValue}</strong><br/>`;
         params.forEach((param: any) => {
-          result += `${param.marker} ${param.seriesName}: ${valueFormatter(
-            param.value
-          )}<br/>`;
+          const numValue = typeof param.value === 'number' ? param.value : Number(param.value) || 0;
+          result += `${param.marker} ${param.seriesName}: ${valueFormatter(numValue)}<br/>`;
         });
         result += "</div>";
         return result;
@@ -94,7 +93,10 @@ export function TrendChart({
       type: "value",
       name: title,
       axisLabel: {
-        formatter: valueFormatter,
+        formatter: (value: any) => {
+          const numValue = typeof value === 'number' ? value : Number(value) || 0;
+          return valueFormatter(numValue);
+        },
       },
     },
     series: series as any,

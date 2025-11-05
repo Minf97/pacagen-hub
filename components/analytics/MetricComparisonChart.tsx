@@ -42,10 +42,12 @@ export function MetricComparisonChart({
       formatter: (params: any) => {
         const dataPoint = params[0]
         const variant = variants[dataPoint.dataIndex]
-        const value = valueFormatter(dataPoint.value)
+        const numValue = typeof dataPoint.value === 'number' ? dataPoint.value : Number(dataPoint.value) || 0
+        const value = valueFormatter(numValue)
+        const changeValue = variant[`${metricKey}_change` as keyof VariantComparison] as number
         const change = variant.is_control
           ? ''
-          : `<br/>vs Control: <span style="color: ${variant[`${metricKey}_change` as keyof VariantComparison] as number > 0 ? '#10b981' : '#ef4444'}">${(variant[`${metricKey}_change` as keyof VariantComparison] as number > 0 ? '+' : '')}${(variant[`${metricKey}_change` as keyof VariantComparison] as number).toFixed(2)}%</span>`
+          : `<br/>vs Control: <span style="color: ${changeValue > 0 ? '#10b981' : '#ef4444'}">${changeValue > 0 ? '+' : ''}${changeValue.toFixed(2)}%</span>`
         return `
           <div style="padding: 8px">
             <strong>${variant.variant_name}</strong><br/>
@@ -65,7 +67,10 @@ export function MetricComparisonChart({
       type: 'value',
       name: title,
       axisLabel: {
-        formatter: valueFormatter,
+        formatter: (value: any) => {
+          const numValue = typeof value === 'number' ? value : Number(value) || 0
+          return valueFormatter(numValue)
+        },
       },
     },
     series: [
@@ -82,7 +87,10 @@ export function MetricComparisonChart({
         label: {
           show: true,
           position: 'top',
-          formatter: (params: any) => valueFormatter(params.value),
+          formatter: (params: any) => {
+            const numValue = typeof params.value === 'number' ? params.value : Number(params.value) || 0
+            return valueFormatter(numValue)
+          },
         },
       },
     ],
