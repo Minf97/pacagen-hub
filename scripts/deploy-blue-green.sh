@@ -288,10 +288,20 @@ main() {
     log "Current active container: $CURRENT"
     log "Target deployment container: $TARGET"
 
+    # Ensure postgres is running (only once)
+    if ! docker ps | grep -q "pacagen_hub_postgres_prod"; then
+        log "Starting shared postgres container..."
+        $DOCKER_COMPOSE -p "$PROJECT_NAME" -f "$COMPOSE_FILE" up -d postgres
+        log "Waiting for postgres to be ready..."
+        sleep 15
+    else
+        log "✅ Postgres container already running"
+    fi
+
     # Build and start new container
     log "Building and starting app-$TARGET container..."
     $DOCKER_COMPOSE -p "$PROJECT_NAME" -f "$COMPOSE_FILE" build "app-$TARGET"
-    $DOCKER_COMPOSE -p "$PROJECT_NAME" -f "$COMPOSE_FILE" up -d "app-$TARGET"
+    $DOCKER_COMPOSE -p "$PROJECT_NAME" -f "$COMPOSE_FILE" up -d --no-deps "app-$TARGET"
 
     # Wait for container to be ready
     sleep 10
