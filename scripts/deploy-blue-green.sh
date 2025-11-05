@@ -14,6 +14,7 @@ set -e  # Exit on error
 # Configuration
 PROJECT_DIR="$HOME/pacagen-hub"
 COMPOSE_FILE="docker-compose.prod.yml"
+PROJECT_NAME="pacagen"  # Fixed project name to avoid container name conflicts
 HEALTH_CHECK_TIMEOUT=60
 HEALTH_CHECK_INTERVAL=5
 BLUE_PORT=3000
@@ -233,13 +234,13 @@ rollback() {
     log_error "Deployment failed, initiating rollback..."
 
     # Stop the new container
-    $DOCKER_COMPOSE -f "$COMPOSE_FILE" stop "app-$new_container" || true
-    $DOCKER_COMPOSE -f "$COMPOSE_FILE" rm -f "app-$new_container" || true
+    $DOCKER_COMPOSE -p "$PROJECT_NAME" -f "$COMPOSE_FILE" stop "app-$new_container" || true
+    $DOCKER_COMPOSE -p "$PROJECT_NAME" -f "$COMPOSE_FILE" rm -f "app-$new_container" || true
 
     # Ensure old container is still running
     if ! docker ps | grep -q "pacagen_app_$old_container"; then
         log_warn "Old container not running, attempting to start..."
-        $DOCKER_COMPOSE -f "$COMPOSE_FILE" up -d "app-$old_container"
+        $DOCKER_COMPOSE -p "$PROJECT_NAME" -f "$COMPOSE_FILE" up -d "app-$old_container"
 
         if ! health_check $([ "$old_container" = "blue" ] && echo "$BLUE_PORT" || echo "$GREEN_PORT"); then
             log_error "❌ Rollback failed! Manual intervention required!"
@@ -289,8 +290,8 @@ main() {
 
     # Build and start new container
     log "Building and starting app-$TARGET container..."
-    $DOCKER_COMPOSE -f "$COMPOSE_FILE" build "app-$TARGET"
-    $DOCKER_COMPOSE -f "$COMPOSE_FILE" up -d "app-$TARGET"
+    $DOCKER_COMPOSE -p "$PROJECT_NAME" -f "$COMPOSE_FILE" build "app-$TARGET"
+    $DOCKER_COMPOSE -p "$PROJECT_NAME" -f "$COMPOSE_FILE" up -d "app-$TARGET"
 
     # Wait for container to be ready
     sleep 10
@@ -319,12 +320,12 @@ main() {
     # Stop old container
     if [ "$CURRENT" != "none" ]; then
         log "Stopping old container: app-$CURRENT..."
-        $DOCKER_COMPOSE -f "$COMPOSE_FILE" stop "app-$CURRENT"
+        $DOCKER_COMPOSE -p "$PROJECT_NAME" -f "$COMPOSE_FILE" stop "app-$CURRENT"
         log "✅ Old container stopped"
 
         # Remove old container to save space
         log "Removing old container..."
-        $DOCKER_COMPOSE -f "$COMPOSE_FILE" rm -f "app-$CURRENT" || true
+        $DOCKER_COMPOSE -p "$PROJECT_NAME" -f "$COMPOSE_FILE" rm -f "app-$CURRENT" || true
     fi
 
     # Post-deployment cleanup
