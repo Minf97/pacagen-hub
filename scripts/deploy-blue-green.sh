@@ -190,9 +190,10 @@ update_nginx() {
         return 1
     fi
 
-    # Backup current config
-    sudo cp "$nginx_config" "${nginx_config}.backup.$(date +%Y%m%d_%H%M%S)"
-    log "Config backed up to ${nginx_config}.backup.$(date +%Y%m%d_%H%M%S)"
+    # Backup current config (to /tmp to avoid nginx loading it)
+    local backup_file="/tmp/pacagen-hub-nginx.backup.$(date +%Y%m%d_%H%M%S)"
+    sudo cp "$nginx_config" "$backup_file"
+    log "Config backed up to $backup_file"
 
     # Update upstream block using markers
     # This replaces the entire server line between BLUE_GREEN_MARKER_START and BLUE_GREEN_MARKER_END
@@ -218,7 +219,7 @@ update_nginx() {
         log_error "Restoring backup..."
 
         # Restore backup
-        sudo cp "${nginx_config}.backup.$(date +%Y%m%d_%H%M%S)" "$nginx_config"
+        sudo cp "$backup_file" "$nginx_config"
 
         return 1
     fi
