@@ -13,6 +13,15 @@ export const shopifyLineItemSchema = z.object({
   title: z.string(),
   quantity: z.number(),
   price: z.string(),
+  properties: z
+    .array(
+      z.object({
+        name: z.string(),
+        value: z.string(),
+      })
+    )
+    .optional()
+    .default([]),
 });
 
 export const shopifyOrderSchema = z.object({

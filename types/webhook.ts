@@ -73,7 +73,7 @@ export interface LineItem {
   price_set: PriceSet;
   product_exists: boolean;
   product_id?: number | null;
-  properties: any[]; // usually array of {name,value} but sample empty
+  properties: Array<{ name: string; value: string }>; // Line item properties (custom fields)
   quantity: number;
   requires_shipping: boolean;
   sales_line_item_group_id?: string | null;

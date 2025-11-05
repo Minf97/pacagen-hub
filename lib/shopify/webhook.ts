@@ -46,28 +46,58 @@ export function verifyShopifyWebhook(
 
 /**
  * Extract A/B test information from Shopify order
- * Looks for experiment data in:
- * 1. note_attributes (custom order attributes)
- * 2. customer.note (customer notes)
+ * Looks for experiment data in line_items properties
  *
- * Expected format in note_attributes:
+ * Expected format in line_item properties:
  * [
- *   { name: "ab_test_experiment_id", value: "uuid" },
- *   { name: "ab_test_variant_id", value: "uuid" },
- *   { name: "ab_test_user_id", value: "uuid" }
+ *   { name: "_paca_hub_ab_uid", value: "user-id-string" },
+ *   { name: "_paca_hub_ab_variants_group", value: "[\"variant-uuid-1\", \"variant-uuid-2\"]" }
  * ]
+ *
+ * Note: We read from line_items.properties instead of note_attributes
+ * because note_attributes can be delayed and empty in some cases.
  */
 export function extractExperimentInfo(order: ShopifyOrder): OrderExperimentInfo {
-  const noteAttributes = order.note_attributes || []
-  logger.debug('noteAttributes', { noteAttributes });
+  // Iterate through all line items to find AB test data
+  let userId: string | undefined
+  let variantsGroup: string | undefined
 
-  const variantsGroup = noteAttributes.find(
-    attr => attr.name === `_${AB_TEST_COOKIE_PREFIX}variants_group`
-  )?.value
+  const lineItems = order.line_items || []
 
-  const userId = noteAttributes.find(
-    attr => attr.name === `_${AB_TEST_COOKIE_PREFIX}uid`
-  )?.value
+  for (const lineItem of lineItems) {
+    const properties = lineItem.properties || []
+
+    // Find user ID if not already found
+    if (!userId) {
+      const userIdProp = properties.find(
+        prop => prop.name === `_${AB_TEST_COOKIE_PREFIX}uid`
+      )
+      if (userIdProp && userIdProp.value) {
+        userId = userIdProp.value
+      }
+    }
+
+    // Find variants group if not already found
+    if (!variantsGroup) {
+      const variantsGroupProp = properties.find(
+        prop => prop.name === `_${AB_TEST_COOKIE_PREFIX}variants_group`
+      )
+      if (variantsGroupProp && variantsGroupProp.value) {
+        variantsGroup = variantsGroupProp.value
+      }
+    }
+
+    // Exit early if we found both
+    if (userId && variantsGroup) {
+      break
+    }
+  }
+
+  logger.debug('Extracted AB test info from line_items.properties', {
+    userId,
+    variantsGroup,
+    lineItemsCount: lineItems.length
+  })
 
   return {
     userId,
