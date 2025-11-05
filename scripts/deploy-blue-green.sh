@@ -15,7 +15,7 @@ set -e  # Exit on error
 PROJECT_DIR="$HOME/pacagen-hub"
 COMPOSE_FILE="docker-compose.prod.yml"
 PROJECT_NAME="pacagen"  # Fixed project name to avoid container name conflicts
-HEALTH_CHECK_TIMEOUT=60
+HEALTH_CHECK_TIMEOUT=30
 HEALTH_CHECK_INTERVAL=5
 BLUE_PORT=3000
 GREEN_PORT=3001
