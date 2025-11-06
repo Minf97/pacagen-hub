@@ -446,3 +446,218 @@ export async function getActiveExperiments() {
     orderBy: [desc(experiments.createdAt)],
   });
 }
+
+// =====================================================
+// PAGE PERFORMANCE METRICS
+// =====================================================
+
+import {
+  pagePerformanceMetrics,
+  pagePerformanceStats,
+  type PagePerformanceMetric,
+  type PagePerformanceMetricInsert,
+  type PagePerformanceStat,
+} from './schema';
+
+/**
+ * Create a performance metric record
+ */
+export async function createPerformanceMetric(data: PagePerformanceMetricInsert) {
+  const [metric] = await db.insert(pagePerformanceMetrics).values(data).returning();
+  return metric;
+}
+
+/**
+ * Get performance metrics for a specific page
+ */
+export async function getPerformanceMetricsByPage(
+  pagePath: string,
+  limit = 100,
+  startDate?: string,
+  endDate?: string
+) {
+  const conditions = [eq(pagePerformanceMetrics.pagePath, pagePath)];
+
+  if (startDate) {
+    conditions.push(sql`${pagePerformanceMetrics.createdAt} >= ${startDate}::timestamp`);
+  }
+  if (endDate) {
+    conditions.push(sql`${pagePerformanceMetrics.createdAt} <= ${endDate}::timestamp`);
+  }
+
+  return db.query.pagePerformanceMetrics.findMany({
+    where: and(...conditions),
+    orderBy: [desc(pagePerformanceMetrics.createdAt)],
+    limit,
+  });
+}
+
+/**
+ * Get aggregated stats for a page within a date range
+ */
+export async function getPagePerformanceStats(
+  pagePath?: string,
+  startDate?: string,
+  endDate?: string,
+  deviceType?: string | null
+) {
+  const conditions = [];
+
+  if (pagePath) {
+    conditions.push(eq(pagePerformanceStats.pagePath, pagePath));
+  }
+  if (startDate) {
+    conditions.push(sql`${pagePerformanceStats.date} >= ${startDate}::date`);
+  }
+  if (endDate) {
+    conditions.push(sql`${pagePerformanceStats.date} <= ${endDate}::date`);
+  }
+  if (deviceType !== undefined) {
+    if (deviceType === null) {
+      conditions.push(sql`${pagePerformanceStats.deviceType} IS NULL`);
+    } else {
+      conditions.push(eq(pagePerformanceStats.deviceType, deviceType));
+    }
+  }
+
+  return db.query.pagePerformanceStats.findMany({
+    where: conditions.length > 0 ? and(...conditions) : undefined,
+    orderBy: [desc(pagePerformanceStats.date)],
+  });
+}
+
+/**
+ * Get list of all pages with performance data
+ */
+export async function getPerformancePages(startDate?: string, endDate?: string) {
+  const conditions = [];
+
+  if (startDate) {
+    conditions.push(sql`${pagePerformanceStats.date} >= ${startDate}::date`);
+  }
+  if (endDate) {
+    conditions.push(sql`${pagePerformanceStats.date} <= ${endDate}::date`);
+  }
+
+  return db
+    .select({
+      pagePath: pagePerformanceStats.pagePath,
+      totalSamples: sql<number>`sum(${pagePerformanceStats.sampleCount})`,
+      avgLcpP75: sql<number>`avg(${pagePerformanceStats.lcpP75})`,
+      avgFidP75: sql<number>`avg(${pagePerformanceStats.fidP75})`,
+      avgClsP75: sql<number>`avg(${pagePerformanceStats.clsP75})`,
+      avgFcpP75: sql<number>`avg(${pagePerformanceStats.fcpP75})`,
+      avgTtfbP75: sql<number>`avg(${pagePerformanceStats.ttfbP75})`,
+      avgLcpGoodRate: sql<number>`avg(${pagePerformanceStats.lcpGoodRate})`,
+      avgFidGoodRate: sql<number>`avg(${pagePerformanceStats.fidGoodRate})`,
+      avgClsGoodRate: sql<number>`avg(${pagePerformanceStats.clsGoodRate})`,
+    })
+    .from(pagePerformanceStats)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .groupBy(pagePerformanceStats.pagePath)
+    .orderBy(desc(sql<number>`sum(${pagePerformanceStats.sampleCount})`));
+}
+
+/**
+ * Get performance stats by device type
+ */
+export async function getPerformanceByDevice(startDate?: string, endDate?: string) {
+  const conditions = [sql`${pagePerformanceStats.deviceType} IS NOT NULL`];
+
+  if (startDate) {
+    conditions.push(sql`${pagePerformanceStats.date} >= ${startDate}::date`);
+  }
+  if (endDate) {
+    conditions.push(sql`${pagePerformanceStats.date} <= ${endDate}::date`);
+  }
+
+  return db
+    .select({
+      deviceType: pagePerformanceStats.deviceType,
+      totalSamples: sql<number>`sum(${pagePerformanceStats.sampleCount})`,
+      avgLcpP75: sql<number>`avg(${pagePerformanceStats.lcpP75})`,
+      avgFidP75: sql<number>`avg(${pagePerformanceStats.fidP75})`,
+      avgClsP75: sql<number>`avg(${pagePerformanceStats.clsP75})`,
+      avgFcpP75: sql<number>`avg(${pagePerformanceStats.fcpP75})`,
+      avgTtfbP75: sql<number>`avg(${pagePerformanceStats.ttfbP75})`,
+    })
+    .from(pagePerformanceStats)
+    .where(and(...conditions))
+    .groupBy(pagePerformanceStats.deviceType)
+    .orderBy(desc(sql<number>`sum(${pagePerformanceStats.sampleCount})`));
+}
+
+/**
+ * Get time series performance data for a page
+ */
+export async function getPerformanceTimeSeries(
+  pagePath: string,
+  startDate?: string,
+  endDate?: string,
+  deviceType?: string | null
+) {
+  const conditions = [eq(pagePerformanceStats.pagePath, pagePath)];
+
+  if (startDate) {
+    conditions.push(sql`${pagePerformanceStats.date} >= ${startDate}::date`);
+  }
+  if (endDate) {
+    conditions.push(sql`${pagePerformanceStats.date} <= ${endDate}::date`);
+  }
+  if (deviceType !== undefined) {
+    if (deviceType === null) {
+      conditions.push(sql`${pagePerformanceStats.deviceType} IS NULL`);
+    } else {
+      conditions.push(eq(pagePerformanceStats.deviceType, deviceType));
+    }
+  }
+
+  return db
+    .select({
+      date: pagePerformanceStats.date,
+      sampleCount: pagePerformanceStats.sampleCount,
+      lcpP75: pagePerformanceStats.lcpP75,
+      fidP75: pagePerformanceStats.fidP75,
+      clsP75: pagePerformanceStats.clsP75,
+      fcpP75: pagePerformanceStats.fcpP75,
+      ttfbP75: pagePerformanceStats.ttfbP75,
+      lcpGoodRate: pagePerformanceStats.lcpGoodRate,
+      fidGoodRate: pagePerformanceStats.fidGoodRate,
+      clsGoodRate: pagePerformanceStats.clsGoodRate,
+    })
+    .from(pagePerformanceStats)
+    .where(and(...conditions))
+    .orderBy(pagePerformanceStats.date);
+}
+
+/**
+ * Get overall performance summary across all pages
+ */
+export async function getOverallPerformanceSummary(startDate?: string, endDate?: string) {
+  const conditions = [sql`${pagePerformanceStats.deviceType} IS NULL`]; // Only use aggregated (all devices) stats
+
+  if (startDate) {
+    conditions.push(sql`${pagePerformanceStats.date} >= ${startDate}::date`);
+  }
+  if (endDate) {
+    conditions.push(sql`${pagePerformanceStats.date} <= ${endDate}::date`);
+  }
+
+  const [summary] = await db
+    .select({
+      totalPages: sql<number>`count(distinct ${pagePerformanceStats.pagePath})`,
+      totalSamples: sql<number>`sum(${pagePerformanceStats.sampleCount})`,
+      avgLcpP75: sql<number>`avg(${pagePerformanceStats.lcpP75})`,
+      avgFidP75: sql<number>`avg(${pagePerformanceStats.fidP75})`,
+      avgClsP75: sql<number>`avg(${pagePerformanceStats.clsP75})`,
+      avgFcpP75: sql<number>`avg(${pagePerformanceStats.fcpP75})`,
+      avgTtfbP75: sql<number>`avg(${pagePerformanceStats.ttfbP75})`,
+      avgLcpGoodRate: sql<number>`avg(${pagePerformanceStats.lcpGoodRate})`,
+      avgFidGoodRate: sql<number>`avg(${pagePerformanceStats.fidGoodRate})`,
+      avgClsGoodRate: sql<number>`avg(${pagePerformanceStats.clsGoodRate})`,
+    })
+    .from(pagePerformanceStats)
+    .where(and(...conditions));
+
+  return summary;
+}
