@@ -5,6 +5,7 @@ import {
   createUserAssignment
 } from '@/lib/db/queries';
 import { getDeviceType } from '@/lib/utils/user-agent';
+import { logger } from '@/lib/logger';
 
 /**
  * POST /api/experiments/track/impression
@@ -39,8 +40,9 @@ export async function POST(request: Request) {
     const impressionDate = date || new Date().toISOString().split('T')[0];
 
     // Extract user context from request headers
-    const userAgent = request.headers.get('user-agent')
+    const userAgent = request.headers.get('User-Agent')
     const deviceType = getDeviceType(userAgent)
+    logger.debug('Request headers:', Object.fromEntries(request.headers.entries()))
 
     // Check if user already has an assignment for this experiment
     const existingAssignment = await getUserAssignment(user_id, experiment_id)
