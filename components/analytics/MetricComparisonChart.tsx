@@ -4,6 +4,7 @@ import React from 'react'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 import type { VariantComparison } from '@/lib/analytics/types'
+import { CalculationExplanation, type CalculationExplanationProps } from './CalculationExplanation'
 
 interface MetricComparisonChartProps {
   variants: VariantComparison[]
@@ -13,6 +14,7 @@ interface MetricComparisonChartProps {
   >
   title: string
   valueFormatter?: (value: number) => string
+  explanation?: CalculationExplanationProps
 }
 
 /**
@@ -24,16 +26,9 @@ export function MetricComparisonChart({
   metricKey,
   title,
   valueFormatter = (v) => v.toFixed(2),
+  explanation,
 }: MetricComparisonChartProps) {
   const option: EChartsOption = {
-    title: {
-      text: title,
-      left: 'left',
-      textStyle: {
-        fontSize: 16,
-        fontWeight: 'normal',
-      },
-    },
     tooltip: {
       trigger: 'axis',
       axisPointer: {
@@ -102,5 +97,13 @@ export function MetricComparisonChart({
     },
   }
 
-  return <ReactECharts option={option} style={{ height: '350px', width: '100%' }} />
+  return (
+    <div>
+      <div className="flex items-center mb-4">
+        <h4 className="text-base font-medium text-gray-900">{title}</h4>
+        {explanation && <CalculationExplanation {...explanation} />}
+      </div>
+      <ReactECharts option={option} style={{ height: '350px', width: '100%' }} />
+    </div>
+  )
 }

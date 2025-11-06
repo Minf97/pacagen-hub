@@ -3,6 +3,7 @@
 import React from 'react'
 import type { VariantComparison } from '@/lib/analytics/types'
 import { ArrowUp, ArrowDown } from 'lucide-react'
+import { CalculationExplanation, type CalculationExplanationProps } from './CalculationExplanation'
 
 interface MetricCardProps {
   variant: VariantComparison
@@ -14,6 +15,7 @@ interface MetricCardProps {
   valueFormatter?: (value: number) => string
   estimateKey?: keyof Pick<VariantComparison, 'estimated_monthly_orders' | 'estimated_monthly_revenue'>
   estimateLabel?: string
+  explanation?: CalculationExplanationProps
 }
 
 /**
@@ -27,6 +29,7 @@ export function MetricCard({
   valueFormatter = (v) => v.toFixed(2),
   estimateKey,
   estimateLabel,
+  explanation,
 }: MetricCardProps) {
   const value = variant[metricKey] as number
   const changeKey = `${metricKey}_change` as keyof VariantComparison
@@ -44,7 +47,10 @@ export function MetricCard({
   return (
     <div className="border rounded-lg p-6 bg-white hover:shadow-md transition-shadow">
       {/* 标题 */}
-      <div className="text-sm font-medium text-gray-600 mb-2">{title}</div>
+      <div className="text-sm font-medium text-gray-600 mb-2 flex items-center">
+        {title}
+        {explanation && <CalculationExplanation {...explanation} />}
+      </div>
 
       {/* 主指标值 */}
       <div className="flex items-baseline gap-2 mb-2">

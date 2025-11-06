@@ -14,6 +14,12 @@ import { MetricCard } from '@/components/analytics/MetricCard'
 import { MetricComparisonChart } from '@/components/analytics/MetricComparisonChart'
 import { VariantComparisonTable } from '@/components/analytics/VariantComparisonTable'
 import { TrendChart } from '@/components/analytics/TrendChart'
+import {
+  getConversionRateExplanation,
+  getRevenuePerVisitorExplanation,
+  getProfitPerVisitorExplanation,
+  getAvgOrderValueExplanation
+} from '@/components/analytics/CalculationExplanation'
 import { EditableWeight } from '@/components/experiments/EditableWeight'
 
 interface ExperimentWithVariants extends Experiment {
@@ -390,6 +396,7 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
                             valueFormatter={(v) => `${v.toFixed(2)}%`}
                             estimateKey="estimated_monthly_orders"
                             estimateLabel="EST. MONTHLY ORDERS"
+                            explanation={getConversionRateExplanation(variant)}
                           />
                         </div>
                       ))}
@@ -405,24 +412,36 @@ export default function ExperimentDetailPage({ params }: { params: Promise<{ id:
                         metricKey="conversion_rate"
                         title="Conversion Rate"
                         valueFormatter={(v) => `${v.toFixed(2)}%`}
+                        explanation={getConversionRateExplanation(
+                          stats.summary.variants.find(v => v.is_control) || stats.summary.variants[0]
+                        )}
                       />
                       <MetricComparisonChart
                         variants={stats.summary.variants}
                         metricKey="revenue_per_visitor"
                         title="Revenue per Visitor"
                         valueFormatter={(v) => `$${v.toFixed(2)}`}
+                        explanation={getRevenuePerVisitorExplanation(
+                          stats.summary.variants.find(v => v.is_control) || stats.summary.variants[0]
+                        )}
                       />
                       <MetricComparisonChart
                         variants={stats.summary.variants}
                         metricKey="profit_per_visitor"
                         title="Profit per Visitor"
                         valueFormatter={(v) => `$${v.toFixed(2)}`}
+                        explanation={getProfitPerVisitorExplanation(
+                          stats.summary.variants.find(v => v.is_control) || stats.summary.variants[0]
+                        )}
                       />
                       <MetricComparisonChart
                         variants={stats.summary.variants}
                         metricKey="avg_order_value"
                         title="Average Order Value"
                         valueFormatter={(v) => `$${v.toFixed(2)}`}
+                        explanation={getAvgOrderValueExplanation(
+                          stats.summary.variants.find(v => v.is_control) || stats.summary.variants[0]
+                        )}
                       />
                     </div>
                   </div>
