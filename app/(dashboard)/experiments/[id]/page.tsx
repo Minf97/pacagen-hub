@@ -26,6 +26,8 @@ interface StatsData {
   segmentData?: {
     desktop?: VariantComparison[]
     mobile?: VariantComparison[]
+    new?: VariantComparison[]
+    returning?: VariantComparison[]
   }
 }
 

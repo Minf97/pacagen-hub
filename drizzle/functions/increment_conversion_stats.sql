@@ -14,6 +14,7 @@ $$ LANGUAGE plpgsql;
 -- Function: Atomically increment conversion stats
 -- Purpose: Eliminate race conditions in conversion tracking
 -- Usage: Called by Shopify webhook when order is created
+-- Version: 2.0 - Now uses unique_users for conversion rate calculation
 CREATE OR REPLACE FUNCTION increment_conversion_stats(
   p_experiment_id uuid,
   p_variant_id uuid,
@@ -23,7 +24,16 @@ CREATE OR REPLACE FUNCTION increment_conversion_stats(
 RETURNS void
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  v_unique_users integer;
 BEGIN
+  -- Calculate actual unique users from user_assignments table
+  SELECT COUNT(DISTINCT user_id)
+  INTO v_unique_users
+  FROM user_assignments
+  WHERE experiment_id = p_experiment_id
+    AND variant_id = p_variant_id;
+
   -- Atomic INSERT or UPDATE using ON CONFLICT
   -- This ensures no race conditions even with concurrent webhooks
   INSERT INTO experiment_stats (
@@ -47,9 +57,13 @@ BEGIN
     p_order_value,        -- revenue: initial order value
     p_order_value,        -- avg_order_value: same as first order
     0,                    -- impressions: will be updated by tracking events
-    0,                    -- unique_users: will be updated by tracking events
+    v_unique_users,       -- unique_users: actual count from user_assignments
     0,                    -- clicks: will be updated by tracking events
-    0,                    -- conversion_rate: 0 until we have impressions
+    CASE
+      WHEN v_unique_users > 0
+      THEN (1::numeric / v_unique_users) * 100
+      ELSE 0
+    END,                  -- conversion_rate: based on unique users
     NOW()
   )
   ON CONFLICT (experiment_id, variant_id, date)
@@ -63,10 +77,13 @@ BEGIN
     -- Recalculate average order value
     avg_order_value = (experiment_stats.revenue + p_order_value) / (experiment_stats.conversions + 1),
 
-    -- Recalculate conversion rate (if we have impression data)
+    -- Update unique users from user_assignments (actual count, not increment)
+    unique_users = v_unique_users,
+
+    -- Recalculate conversion rate based on unique users (not impressions)
     conversion_rate = CASE
-      WHEN experiment_stats.impressions > 0
-      THEN ((experiment_stats.conversions + 1)::numeric / experiment_stats.impressions) * 100
+      WHEN v_unique_users > 0
+      THEN ((experiment_stats.conversions + 1)::numeric / v_unique_users) * 100
       ELSE 0
     END,
 
@@ -75,4 +92,4 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION increment_conversion_stats IS 'Atomically increments conversion stats for an experiment variant. Uses ON CONFLICT to prevent race conditions when multiple webhooks arrive simultaneously.';
+COMMENT ON FUNCTION increment_conversion_stats IS 'Atomically increments conversion stats for an experiment variant. Calculates conversion rate based on unique users from user_assignments table. Uses ON CONFLICT to prevent race conditions.';

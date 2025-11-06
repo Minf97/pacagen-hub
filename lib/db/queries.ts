@@ -149,6 +149,12 @@ export async function getUserAssignment(userId: string, experimentId: string) {
   });
 }
 
+export async function getAllUserAssignments(userId: string) {
+  return db.query.userAssignments.findMany({
+    where: eq(userAssignments.userId, userId),
+  });
+}
+
 export async function createUserAssignment(data: UserAssignmentInsert) {
   const [assignment] = await db.insert(userAssignments).values(data).returning();
   return assignment;
@@ -201,7 +207,7 @@ export async function getVariantTotals(experimentId: string) {
   return db
     .select({
       variantId: experimentStats.variantId,
-      totalVisitors: sql<number>`sum(${experimentStats.uniqueUsers})`,
+      totalVisitors: sql<number>`max(${experimentStats.uniqueUsers})`, // 取最大值（最新的累计数）
       totalImpressions: sql<number>`sum(${experimentStats.impressions})`,
       totalClicks: sql<number>`sum(${experimentStats.clicks})`,
       totalOrders: sql<number>`sum(${experimentStats.conversions})`,
@@ -265,6 +271,66 @@ export async function getVariantTotalsByDevice(experimentId: string, deviceType:
     totalOrders: conversionMap.get(visitor.variantId)?.totalOrders || 0,
     totalRevenue: conversionMap.get(visitor.variantId)?.totalRevenue || '0',
     dayCount: 0, // Not applicable for device segmentation
+  }));
+}
+
+/**
+ * Get variant totals segmented by visitor type (new vs returning)
+ * Aggregates statistics from user assignments and events
+ */
+export async function getVariantTotalsByVisitorType(
+  experimentId: string,
+  visitorType: 'new' | 'returning'
+) {
+  const isNewVisitor = visitorType === 'new'
+
+  // Get visitor counts from user_assignments
+  const visitorStats = await db
+    .select({
+      variantId: userAssignments.variantId,
+      totalVisitors: sql<number>`count(distinct ${userAssignments.userId})`,
+    })
+    .from(userAssignments)
+    .where(
+      and(
+        eq(userAssignments.experimentId, experimentId),
+        eq(userAssignments.isNewVisitor, isNewVisitor)
+      )
+    )
+    .groupBy(userAssignments.variantId);
+
+  // Get conversion metrics from events joined with user_assignments
+  const conversionStats = await db
+    .select({
+      variantId: userAssignments.variantId,
+      totalOrders: sql<number>`count(distinct ${events.id})`,
+      totalRevenue: sql<string>`coalesce(sum(cast(${events.eventData}->>'orderValue' as numeric)), 0)`,
+    })
+    .from(events)
+    .innerJoin(
+      userAssignments,
+      and(
+        eq(events.userId, userAssignments.userId),
+        eq(userAssignments.experimentId, experimentId),
+        eq(userAssignments.isNewVisitor, isNewVisitor)
+      )
+    )
+    .where(eq(events.eventType, 'conversion'))
+    .groupBy(userAssignments.variantId);
+
+  // Merge visitor and conversion stats
+  const conversionMap = new Map(
+    conversionStats.map(stat => [stat.variantId, stat])
+  );
+
+  return visitorStats.map(visitor => ({
+    variantId: visitor.variantId,
+    totalVisitors: visitor.totalVisitors,
+    totalImpressions: visitor.totalVisitors, // Use visitors as impressions approximation
+    totalClicks: 0, // Not tracked in current schema
+    totalOrders: conversionMap.get(visitor.variantId)?.totalOrders || 0,
+    totalRevenue: conversionMap.get(visitor.variantId)?.totalRevenue || '0',
+    dayCount: 0, // Not applicable for visitor type segmentation
   }));
 }
 

@@ -118,6 +118,7 @@ export const userAssignments = pgTable(
     userAgent: text('user_agent'),
     country: text('country'),
     deviceType: text('device_type'),
+    isNewVisitor: boolean('is_new_visitor'), // TRUE = first-time visitor, FALSE = returning visitor
   },
   (table) => ({
     pk: primaryKey({ columns: [table.userId, table.experimentId] }),

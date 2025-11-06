@@ -3,7 +3,8 @@ import {
   getExperimentById,
   getVariantTotals,
   getExperimentTimeSeries,
-  getVariantTotalsByDevice
+  getVariantTotalsByDevice,
+  getVariantTotalsByVisitorType
 } from '@/lib/db/queries'
 import type { ExperimentWithVariants } from '@/lib/db/schema'
 import {
@@ -142,7 +143,11 @@ export async function GET(
     const desktopTotals = await getVariantTotalsByDevice(experimentId, 'desktop')
     const mobileTotals = await getVariantTotalsByDevice(experimentId, 'mobile')
 
-    // 10. 聚合设备分段指标
+    // 10. 获取访客类型分段数据 (New/Returning)
+    const newVisitorTotals = await getVariantTotalsByVisitorType(experimentId, 'new')
+    const returningVisitorTotals = await getVariantTotalsByVisitorType(experimentId, 'returning')
+
+    // 11. 聚合设备分段指标
     const processDeviceSegment = (deviceTotals: typeof desktopTotals) => {
       const deviceMetrics = experimentWithVariants.variants
         .map((variant) => {
@@ -171,6 +176,8 @@ export async function GET(
 
     const desktopVariants = processDeviceSegment(desktopTotals)
     const mobileVariants = processDeviceSegment(mobileTotals)
+    const newVisitorVariants = processDeviceSegment(newVisitorTotals)
+    const returningVisitorVariants = processDeviceSegment(returningVisitorTotals)
 
     return NextResponse.json({
       summary,
@@ -178,6 +185,8 @@ export async function GET(
       segmentData: {
         desktop: desktopVariants,
         mobile: mobileVariants,
+        new: newVisitorVariants,
+        returning: returningVisitorVariants,
       },
     })
   } catch (error) {

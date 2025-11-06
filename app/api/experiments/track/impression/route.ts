@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import {
   incrementImpression,
   getUserAssignment,
-  createUserAssignment
+  createUserAssignment,
+  getAllUserAssignments
 } from '@/lib/db/queries';
 import { getDeviceType } from '@/lib/utils/user-agent';
 import { logger } from '@/lib/logger';
@@ -47,8 +48,13 @@ export async function POST(request: Request) {
     // Check if user already has an assignment for this experiment
     const existingAssignment = await getUserAssignment(user_id, experiment_id)
 
-    // If first impression, create user assignment record
+    // If first impression for this experiment, create user assignment record
     if (!existingAssignment) {
+      // Check if this user has ANY previous assignments (across all experiments)
+      // to determine if they're a new or returning visitor
+      const allUserAssignments = await getAllUserAssignments(user_id)
+      const isNewVisitor = allUserAssignments.length === 0
+
       await createUserAssignment({
         userId: user_id,
         experimentId: experiment_id,
@@ -57,6 +63,13 @@ export async function POST(request: Request) {
         userAgent: userAgent,
         deviceType: deviceType === 'unknown' ? null : deviceType,
         country: null, // TODO: Add GeoIP lookup in future
+        isNewVisitor: isNewVisitor, // Track if this is a first-time visitor
+      })
+
+      logger.debug('User assignment created', {
+        userId: user_id,
+        isNewVisitor,
+        totalPreviousAssignments: allUserAssignments.length
       })
     }
 
