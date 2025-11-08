@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPerformanceMetric } from '@/lib/db/queries';
 import { getDeviceType } from '@/lib/utils/user-agent';
 import type { PerformanceMetricPayload } from '@/lib/performance/types';
+import { corsHeaders } from '@/lib/utils/cors';
+
+/**
+ * OPTIONS /api/performance/track
+ * Handle CORS preflight requests
+ */
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
 
 /**
  * POST /api/performance/track
@@ -19,7 +28,7 @@ export async function POST(request: NextRequest) {
     if (!payload.pageUrl || !payload.pagePath) {
       return NextResponse.json(
         { error: 'Missing required fields: pageUrl, pagePath' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -70,13 +79,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Performance metric recorded successfully',
-    });
+    }, { headers: corsHeaders });
 
   } catch (error) {
     console.error('[API] Error recording performance metric:', error);
     return NextResponse.json(
       { error: 'Failed to record performance metric' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
