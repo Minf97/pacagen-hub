@@ -33,7 +33,7 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { experiment_id, variant_id, user_id, date } = body;
+    const { experiment_id, variant_id, user_id, date, user_agent } = body;
 
     logger.info('[Impression] Tracking request received', {
       experiment_id,
@@ -61,8 +61,8 @@ export async function POST(request: Request) {
     // Use provided date or default to today
     const impressionDate = date || new Date().toISOString().split('T')[0];
 
-    // Extract user context from request headers
-    const userAgent = request.headers.get('User-Agent')
+    // Extract user context from payload (fallback to headers if not provided)
+    const userAgent = user_agent || request.headers.get('User-Agent')
     const deviceType = getDeviceType(userAgent)
     logger.debug('[Impression] Request headers and device', {
       deviceType,
